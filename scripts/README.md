@@ -57,6 +57,37 @@ opponent that uses the hidden trick table to double failing contracts).
 `weakspots.py` breaks the saved match down by doubled contracts, competitive
 auctions, and declarer.
 
+## Play a bidding match against Brill (or any Seat Robot API engine)
+
+`brill:URL` asks a running Brill service for each Brill call (`GET /bid`, the
+[Seat Robot API](https://brill.aalborgdata.dk/seat-api.html)); `seat:URL` does the same
+for any other engine that speaks it, including Pidgin's own server, whose Pidgin V2 team
+adds the bidding search that `four:` does not have.
+
+```bash
+# Network only (no search), against a local Brill service on port 5200:
+python tools/match.py --a four:server/models/pidginv2_bid_s40000.pt \
+  --b brill:http://localhost:5200 --deals 1000 --out results/v2_vs_brill \
+  --pbn results/v2_vs_brill/match.pbn --name-a PidginV2 --name-b Brill
+# The served team, with search:
+python tools/match.py --a "seat:http://localhost:8080/apis/brill?model=PidginV2" \
+  --b brill:http://localhost:5200 ...
+```
+
+`--pbn` writes both tables of every board, `[Result]` being the double-dummy trick count of
+the contract reached. `--brill-opponent-system Pidgin` makes Brill read the other side with
+its model of Pidgin instead of its own rules; `--brill-workers` sets the parallel requests.
+
+To replay the deals of an existing PBN (for example a match someone else ran) instead of
+the DDS dataset: get its double-dummy table with Brill's
+`Brill.GameValidation.Cli match.pbn --dd-table dd.csv`, convert, and play each board with
+its own dealer and vulnerability:
+
+```bash
+python tools/pbn_deals.py match.pbn dd.csv data/match_deals.npz
+python tools/match.py ... --data data/match_deals.npz --deals 600 --start 0 --as-dealt
+```
+
 ## Reproduce the results page
 
 With the DDS dataset installed, `scripts/make_results.sh` runs the released

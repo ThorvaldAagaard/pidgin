@@ -16,6 +16,11 @@ Players (``--a`` / ``--b``):
 - ``punish:PATH`` -- the four-seat net, but it doubles exactly the contracts that go
   down double-dummy (and never otherwise), at any seat.
 - ``rule:STYLE`` -- a batched rule bidder (sayc, weakclub, happy); never doubles.
+- ``brill:URL`` -- Brill, one HTTP ``GET /bid`` per call to a Brill service (Seat Robot
+  API), e.g. ``brill:http://localhost:5200``. ``seat:URL`` is the same for any other engine
+  that speaks that API, e.g. the served Pidgin team with its bidding search:
+  ``seat:http://localhost:8080/apis/brill?model=PidginV2``. ``--brill-opponent-system Pidgin`` makes it
+  read the other side with its model of Pidgin instead of its own rules.
 
 Boards: ``--deals`` deals (default the last 10,000) x 4 dealers x 4
 vulnerabilities. Checks: each player against itself must score exactly 0 IMPs,
@@ -256,8 +261,104 @@ class RulePlayer:
                             torch.full((len(rows),), table.t, dtype=torch.long), table.dealer[rows])
 
 
+class BrillPlayer:
+    """Brill, asked over HTTP: one ``GET /bid`` per call to a Brill service that speaks the
+    Seat Robot API (https://brill.aalborgdata.dk/seat-api.html), e.g. ``http://localhost:5200``.
+
+    The spec's URL may carry extra query parameters, sent on every request:
+    ``brill:http://localhost:5200?nsSystem=Pidgin`` -- but which side is the opponent changes
+    between the two tables, so use ``--brill-opponent-system`` for that instead. The batch is
+    asked in parallel (``--brill-workers``); the service is stateless per request."""
+
+    SEATS, STRAINS, RANKS, SUITS = "NESW", "CDHSN", "AKQJT98765432", "SHDC"
+    workers = 8
+    opponent_system = None          # e.g. "Pidgin": read the other side with that model
+
+    def __init__(self, url: str, kind: str = "brill"):
+        from urllib.parse import urlsplit, parse_qsl
+        parts = urlsplit(url)
+        self.base = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+        self.extra = dict(parse_qsl(parts.query))
+        self.kind = kind
+        self.name = kind if kind == "brill" else f"seat:{parts.netloc}"
+        self.meta = {"kind": kind, "url": url}
+        self.requests = 0
+        version = self._get("/version", {})
+        if version is not None:
+            self.meta["version"] = version
+
+    def _get(self, path: str, params: dict):
+        from urllib.parse import urlencode
+        from urllib.request import urlopen
+        try:
+            with urlopen(f"{self.base}{path}?{urlencode(params)}", timeout=120) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception:
+            if path == "/version":
+                return None
+            raise
+
+    def _hand(self, cards: torch.Tensor) -> str:
+        held = cards.nonzero().squeeze(1).tolist()
+        return ".".join("".join(self.RANKS[c % 13] for c in sorted(held) if c // 13 == s)
+                        for s in range(4))
+
+    def _token(self, call: int) -> str:
+        if call == PASS:
+            return "--"
+        if call == DOUBLE:
+            return "Db"
+        if call == REDOUBLE:
+            return "Rd"
+        return f"{call // 5 + 1}{self.STRAINS[call % 5]}"
+
+    def _parse(self, token: str) -> int:
+        t = token.strip().upper()
+        if t in ("--", "P", "PASS"):
+            return PASS
+        if t in ("DB", "X", "DOUBLE"):
+            return DOUBLE
+        if t in ("RD", "XX", "REDOUBLE"):
+            return REDOUBLE
+        if t.endswith("NT"):
+            t = t[:-1]
+        return (int(t[0]) - 1) * 5 + self.STRAINS.index(t[1])
+
+    def act(self, table: Table, rows: torch.Tensor) -> torch.Tensor:
+        from concurrent.futures import ThreadPoolExecutor
+        seats = table.seat_abs(rows).tolist()
+
+        def ask(i: int) -> int:
+            r, seat = int(rows[i]), seats[i]
+            vns, vew = bool(table.vul_ns[r]), bool(table.vul_ew[r])
+            params = {
+                "hand": self._hand(table.deals.hands[table.deal[r], seat]),
+                "seat": self.SEATS[seat],
+                "dealer": self.SEATS[int(table.dealer[r])],
+                "ctx": "".join(self._token(int(c)) for c in table.history[r, :table.t]),
+                "vul": "All" if vns and vew else "NS" if vns else "EW" if vew else "None",
+                "board": str(int(table.deal[r])),
+                **self.extra,
+            }
+            if self.opponent_system and self.kind == "brill":
+                ours = "nsSystem" if seat % 2 == 0 else "ewSystem"
+                theirs = "ewSystem" if seat % 2 == 0 else "nsSystem"
+                params.setdefault(ours, "Brill")
+                params.setdefault(theirs, self.opponent_system)
+            return self._parse(self._get("/bid", params)["bid"])
+
+        with ThreadPoolExecutor(self.workers) as pool:
+            calls = list(pool.map(ask, range(len(rows))))
+        self.requests += len(calls)
+        return torch.tensor(calls, dtype=torch.long)
+
+
 def make_player(spec: str):
     kind, _, rest = spec.partition(":")
+    if kind == "brill":
+        return BrillPlayer(rest)
+    if kind == "seat":
+        return BrillPlayer(rest, kind="seat")
     if kind == "pass":
         return PassPlayer()
     if kind == "rule":
@@ -342,6 +443,60 @@ def trim_history(hist: np.ndarray) -> np.ndarray:
     return hist[:, :width].astype(np.int8)
 
 
+def write_pbn(path, deals, deal, dealer, vul, res, hist1, hist2, imps, name_a, name_b,
+              board_no=None):
+    """Both tables of every board as PBN: room "Open" seats A North-South, "Closed" seats B
+    there. [Result] is the DOUBLE-DUMMY trick count of the contract reached (only the bidding
+    was played), and the header says so. A comment after each board gives A's IMPs."""
+    seats, strains, ranks = "NESW", "CDHSN", "AKQJT98765432"
+    vul_tag = ("None", "NS", "EW", "All")
+    hands = deals.hands.numpy()
+    tricks = deals.tricks.numpy()
+
+    def hand(cards):
+        held = np.nonzero(cards)[0]
+        return ".".join("".join(ranks[c % 13] for c in held if c // 13 == s) for s in range(4))
+
+    def token(c):
+        return "Pass" if c == PASS else "X" if c == DOUBLE else "XX" if c == REDOUBLE \
+            else f"{c // 5 + 1}{'NT' if c % 5 == 4 else strains[c % 5]}"
+
+    def contract(calls, c, decl):
+        if c < 0:
+            return None
+        after = calls[max(i for i, x in enumerate(calls) if 0 <= x < L) + 1:]
+        x = "XX" if REDOUBLE in after else "X" if DOUBLE in after else ""
+        return f"{c // 5 + 1}{'NT' if c % 5 == 4 else strains[c % 5]}{x}"
+
+    lines = [f"% {name_a} vs {name_b}: bidding only, {len(deal)} boards, results double dummy",
+             f"% {name_a} IMPs/board {imps.mean():+.2f}", ""]
+    for i in range(len(deal)):
+        d, dl, v = int(deal[i]), int(dealer[i]), int(vul[i])
+        deal_str = "N:" + " ".join(hand(hands[d, s]) for s in range(4))
+        for room, hist, key, ns_name, ew_name in (("Open", hist1, "1", name_a, name_b),
+                                                  ("Closed", hist2, "2", name_b, name_a)):
+            calls = [int(x) for x in hist[i] if x >= 0]
+            c, decl, ns = int(res["c" + key][i]), int(res["d" + key][i]), int(res["ns" + key][i])
+            lines += [f'[Event "{name_a} vs {name_b} (bidding, DD result)"]', f'[Board "{i + 1 if board_no is None else int(board_no[i])}"]',
+                      f'[Room "{room}"]', f'[North "{ns_name}"]', f'[East "{ew_name}"]',
+                      f'[South "{ns_name}"]', f'[West "{ew_name}"]', f'[Dealer "{seats[dl]}"]',
+                      f'[Vulnerable "{vul_tag[v]}"]', f'[Deal "{deal_str}"]', '[Scoring "IMP"]']
+            con = contract(calls, c, decl)
+            if con is None:
+                lines += ['[Contract "Pass"]']
+            else:
+                t = int(tricks[d, decl, CONTRACT_TABLE_STRAIN[c]])
+                side = "NS" if decl % 2 == 0 else "EW"
+                lines += [f'[Contract "{con}"]', f'[Declarer "{seats[decl]}"]', f'[Result "{t}"]',
+                          f'[Score "{side} {ns if side == "NS" else -ns}"]']
+            lines.append(f'[Auction "{seats[dl]}"]')
+            toks = [token(x) for x in calls]
+            lines += [" ".join(toks[j:j + 4]) for j in range(0, len(toks), 4)]
+            lines.append("")
+        lines += [f"{{{name_a} {int(imps[i]):+d} IMPs}}", ""]
+    Path(path).write_text("\n".join(lines), encoding="utf-8")
+
+
 def summarize(res, deal, vul, deal_local, seed):
     points = res["ns1"] - res["ns2"]
     imps = imps_array(points).astype(np.float64)
@@ -384,7 +539,19 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--boards", type=int, default=0,
                    help="play a seeded random subset of N boards (0 = all)")
+    p.add_argument("--brill-workers", type=int, default=8,
+                   help="parallel /bid requests for a brill: player")
+    p.add_argument("--as-dealt", action="store_true",
+                   help="one board per deal, dealer/vul from the deal file (tools/pbn_deals.py)")
+    p.add_argument("--pbn", default=None,
+                   help="also write both tables of every board as PBN (DD results)")
+    p.add_argument("--name-a", default=None, help="player A's name in the PBN")
+    p.add_argument("--name-b", default=None, help="player B's name in the PBN")
+    p.add_argument("--brill-opponent-system", default=None,
+                   help="system a brill: player reads the opponents with (e.g. Pidgin)")
     args = p.parse_args()
+    BrillPlayer.workers = args.brill_workers
+    BrillPlayer.opponent_system = args.brill_opponent_system
     torch.set_num_threads(args.threads)
     start = time.time()
     out = Path(args.out)
@@ -394,6 +561,17 @@ def main() -> None:
     deals = load_range(args.data, -args.deals if args.start is None else args.start,
                        args.deals)
     deal, dealer, vul = boards(deals.n)
+    board_no = None
+    if args.as_dealt:
+        # One board per deal, with the dealer and vulnerability the deal file names
+        # (tools/pbn_deals.py writes them), instead of the 4 x 4 rotation.
+        z = np.load(args.data)
+        first = deals.first_index
+        deal = torch.arange(deals.n)
+        dealer = torch.as_tensor(z["dealer"][first:first + deals.n])
+        vul = torch.as_tensor(z["vul"][first:first + deals.n])
+        if "board" in z.files:
+            board_no = z["board"][first:first + deals.n]
     if args.boards > 0:
         pick = torch.as_tensor(np.sort(np.random.default_rng(args.seed).choice(
             len(deal), min(args.boards, len(deal)), replace=False)))
@@ -430,6 +608,10 @@ def main() -> None:
 
     res, hist1, hist2 = run_boards([a, b], deals, deal, dealer, vul, chunk)
     report, imps, checked = write(res, hist1, hist2)
+    if args.pbn:
+        write_pbn(args.pbn, deals, deal.numpy(), dealer.numpy(), vul.numpy(), res, hist1, hist2,
+                  imps, args.name_a or a.name, args.name_b or b.name,
+                  None if board_no is None or args.boards > 0 else board_no)
     vul_np = vul.numpy()
 
     with (out / "sample_auctions.txt").open("w") as fh:
