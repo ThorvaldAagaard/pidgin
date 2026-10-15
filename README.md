@@ -15,9 +15,22 @@ No expert auctions or bidding labels are required.
 | `server/` | The site and APIs that serve the models ([docs/serving.md](docs/serving.md)). |
 | `belief/` | Belief net for the bidding search ([docs/belief.md](docs/belief.md)). |
 | `qnet/` | Card-play Q-net trainer and its data pipeline ([docs/card_play.md](docs/card_play.md)). |
-| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). |
+| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). How simple they bid: [simplicity](docs/simplicity.md). |
 | `scripts/` | Commands to use the models: download, bid, generate auctions, serve ([scripts/README.md](scripts/README.md)). |
 | `tools/` | Matches, dashboard, analysis. |
+
+## Results at a glance
+
+| | |
+|---|---|
+| Pidgin V2 vs Pidgin V1, bidding | +0.37 ± 0.03 IMPs/board (160,000 boards) |
+| Pidgin V1 vs BRL, bidding | −0.38 ± 0.03 IMPs/board (160,000 boards) |
+| Pidgin V1 vs EPBot, five systems | +0.62 to +0.73 IMPs/board (8,000 boards each) |
+| Pidgin V2 team vs Pidgin V1 team, full play | +0.33 ± 0.10 IMPs/board (4,000 boards) |
+| Q-net opening leads (DDOLAR / ADDOLAR) | 81.3% / 74.7%, level with top experts |
+| Belief net, hidden cards placed after the auction | 44.8% (exact shapes would give 47.1%) |
+
+Details, board counts and how to rerun: [docs/results.md](docs/results.md).
 
 ## Set up
 
@@ -174,6 +187,8 @@ of one slice makes it diagnostic; use fresh deals and several training seeds
 for a strength claim. In-training rewards are not a strength estimate.
 
 ## Simplicity
+
+How Pidgin's openings compare with BRL and SAYC: [docs/simplicity.md](docs/simplicity.md).
 
 A **code word** is a call flagged by any of these rules:
 

@@ -5,6 +5,8 @@ uses [belief-based bidding search](belief.md) and the
 [Pidgin Q-net card-play model](card_play.md). Its training starts with Pidgin V1's
 grounding stage, then trains on table score. Later stages add a stronger penalty
 for contracts that fail when doubled and a cost for weak opening bids.
+The [bidding model guide](bidding_model.md) explains the network layout,
+losses, and a training-loop example shared with V1.
 
 To ask the released Pidgin V2 bidder for a call without bidding search:
 
@@ -19,6 +21,18 @@ The complete team uses bidding search and card play on the server; see
 [serving.md](serving.md).
 
 ## Training outline
+
+Pidgin V2 branches from Pidgin V1's grounding stage, before own-contract training.
+The released Pidgin V1 bidder is a separate opponent for training and evaluation.
+
+```mermaid
+flowchart TD
+    ground["Pidgin V1 grounding checkpoint"] --> doubled["Train with doubled penalties for failing contracts"]
+    doubled -->|best.pt| table["Table-score training with mixed opponents"]
+    table -->|Step 32,000| light["Add a penalty for weak opening bids"]
+    light -->|Step 40,000| released["Released Pidgin V2 bidder"]
+    v1["Released Pidgin V1 bidder"] -.->|Fixed training opponent| table
+```
 
 The trainer is `training/fourseat/train.py`. It needs the
 `data/dds_results_100M.npy` dataset (see [README](../README.md#training-data)),
@@ -87,7 +101,32 @@ python -m training.fourseat.train --out runs/my_v2/3_table \
 
 Stage 4 starts from `runs/my_v2/3_table/ckpt_step32000.pt`, uses the stage 3
 flags, and adds `--light-open-penalty 0.5`. Set a new `--out` directory and
-`--steps 40000` to reach the released checkpoint's step count. The selected
-`best.pt` may be from another step: the released file is the step 40,000
-checkpoint. The intermediate V2 checkpoints are not distributed here, so the
-released file cannot be recreated simply by running these examples.
+`--steps 40000` to reach the released checkpoint's step count. The released file is the step 40,000
+checkpoint.
+
+## Results
+
+Bidding alone, duplicate, double-dummy scoring, 160,000 held-out boards
+([all results](results.md)):
+
+| Opponent | IMPs/board |
+|---|---|
+| Pidgin V1 | +0.37 ± 0.03 |
+| `rule:sayc` (this repo's rule bidder) | +3.39 ± 0.05 |
+| punisher (doubles every contract that goes down) | +0.00 ± 0.03 |
+
+Full team (bidding search and Q-net card play) against the Pidgin V1 team, 4,000 boards
+scored on the real cards: +0.33 ± 0.10 IMPs per board.
+
+Style compared with V1: the same 0.92 code words per 100 calls; weak two-bids in all four
+suits; 1♠ shows five cards 91% of the time (V1: 66%); 6.5% of 0–7 HCP hands open (V1: 4.4%).
+
+## Training history
+
+<p align="center"><img src="figures/pidgin_v2/imps_vs_v1.svg" alt="Pidgin V2 IMPs per board against Pidgin V1" width="720"></p>
+
+<p align="center"><img src="figures/pidgin_v2/light_openings.svg" alt="Pidgin V2 share of 0–7 HCP hands opened" width="720"></p>
+
+IMPs against Pidgin V1 climb from −3.7 to about +0.35 per board over the three stages.
+The light-opening cost cuts openings on 0–7 HCP from 30% to about 10%. See
+[training curves](training_curves.md).
