@@ -15,7 +15,7 @@ No expert auctions or bidding labels are required.
 | `server/` | The site and APIs that serve the models ([docs/serving.md](docs/serving.md)). |
 | `belief/` | Belief net for the bidding search ([docs/belief.md](docs/belief.md)). |
 | `qnet/` | Card-play Q-net trainer and its data pipeline ([docs/card_play.md](docs/card_play.md)). |
-| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). How simple they bid: [simplicity](docs/simplicity.md). |
+| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [Pidgin V3.1](docs/pidgin_v3_1.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). How simple they bid: [simplicity](docs/simplicity.md). |
 | `scripts/` | Commands to use the models: download, bid, generate auctions, serve ([scripts/README.md](scripts/README.md)). |
 | `tools/` | Matches, dashboard, analysis. |
 
@@ -24,6 +24,7 @@ No expert auctions or bidding labels are required.
 | | |
 |---|---|
 | Pidgin V2 vs Pidgin V1, bidding | +0.37 ± 0.03 IMPs/board (160,000 boards) |
+| Pidgin V3.1 vs BRL, bidding | +0.20 ± 0.06 IMPs/board (160,000 fresh boards) |
 | Pidgin V1 vs BRL, bidding | −0.38 ± 0.03 IMPs/board (160,000 boards) |
 | Pidgin V1 vs EPBot, five systems | +0.62 to +0.73 IMPs/board (8,000 boards each) |
 | Pidgin V2 team vs Pidgin V1 team, full play | +0.33 ± 0.10 IMPs/board (4,000 boards) |
@@ -64,7 +65,7 @@ PidginV1 as S: 1S
 
 The hand uses spades.hearts.diamonds.clubs, with `T` for ten. `--auction` is the
 public calls so far (`P` means pass); the hand belongs to the next player to call.
-`--model` picks a team (`PidginV1`, `PidginV2`, `BRL`) or a checkpoint file.
+`--model` picks a team (`PidginV1`, `PidginV2`, `PidginV3.1`, `BRL`) or a checkpoint file.
 These command-line tools use the bidding network directly. The Pidgin V2 team
 through the Brill API also uses bidding search, so its calls can differ from
 the scripts.
@@ -236,5 +237,8 @@ Apache-2.0. See [LICENSE](LICENSE).
   "A Simple, Solid, and Reproducible Baseline for Bridge Bidding AI", IEEE CoG 2024.
   Apache-2.0; its licence ships with the weights as `brl_LICENSE`.
   `server/emergent/brl_player.py` is a PyTorch port of its network.
+- **EPBot** and **BEN** are not in this repository. Pidgin V3.1 was trained against them
+  outside it ([docs/pidgin_v3_1.md](docs/pidgin_v3_1.md)), so Pidgin V3 and V3.1 cannot be
+  retrained from this repository; their weights are released like the others.
 - **Training data**: the [`sotetsuk/dds_dataset`](https://huggingface.co/datasets/sotetsuk/dds_dataset)
   double-dummy deals (Apache-2.0), generated with [PGX](https://github.com/sotetsuk/pgx).

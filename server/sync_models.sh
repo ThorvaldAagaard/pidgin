@@ -30,6 +30,8 @@ PUBLIC=${PUBLIC:-$(cd .. && pwd)}
 copy_ck "$PUBLIC/runs/box_pull/g_s2o_hi/3/ckpt_step60000.pt" hi3_s60k.pt          # +0.35 vs D, light openings
 copy_ck "$PUBLIC/runs/exp_20260930/g_s2o_hi3_lo/ckpt_step28000.pt" lo_s28k.pt     # light-opening penalty
 
+copy brl_opponent/mix_ben/ckpt_step20000.pt pidginv3_1_bid_s20000.pt   # Pidgin V3.1 (docs/pidgin_v3_1.md)
+
 echo "==> belief net for /debug's bidding search (emergent/bidsearch.py): float16, no system head"
 BELIEF=${BELIEF:-$SRC/experiments/belief_multi/runs/r2/last.pt}
 python3 - "$BELIEF" models/belief_r2.pt <<'PY'

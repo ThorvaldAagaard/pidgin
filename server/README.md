@@ -56,9 +56,10 @@ The `model` parameter selects a complete team for `/bid`, `/lead`, and `/play`:
 |---|---|---|
 | `PidginV1` | Pidgin V1 bidding model | Pidgin V1 card-play model with search |
 | `PidginV2` | Pidgin V2 bidding model with search | Pidgin Q-net card-play model with search |
+| `PidginV3.1` | Pidgin V3.1 bidding model, no bidding search | Pidgin Q-net card-play model with search |
 | `BRL` | External BRL bidding baseline | Pidgin Q-net card-play model with search |
 
-These IDs are listed at `/apis/brill/`. The internal weight filenames are recorded in `models/teams.json` and described in [Serving](../docs/serving.md). An unqualified Brill request uses `BRILL_DEFAULT_MODEL` when set; the Docker image sets it to `PidginV2`. Otherwise the API uses the first loaded bidding or play model. Specify `model` when comparing teams so the result is unambiguous.
+These IDs are listed at `/apis/brill/`. The internal weight filenames are recorded in `models/teams.json` and described in [Serving](../docs/serving.md). An unqualified Brill request uses `BRILL_DEFAULT_MODEL` when set; the Docker image sets it to `PidginV3.1`. Otherwise the API uses the first loaded bidding or play model. Specify `model` when comparing teams so the result is unambiguous.
 
 For example, ask Pidgin V1 to bid from North on a new auction:
 
