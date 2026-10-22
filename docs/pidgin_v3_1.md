@@ -75,6 +75,18 @@ not used in training, 16 boards per deal (4 dealers × 4 vulnerabilities), each 
 For comparison, Pidgin V3 on the same deals scored −0.16 [−0.22, −0.10] against BRL
 and +0.81 against EPBot SAYC.
 
+Against BRL's bidder the table above is bidding only. Two more bidding-only matches on
+fresh deals: Brill, a rule-based bidder, +1.41 [+1.17, +1.64] over 16,000 boards; the BBO
+robot at its advanced level, +0.54 [+0.20, +0.89] over 1,000 boards (Pidgin V3: +0.66
+[+0.30, +1.02] on the same boards).
+
+Full boards, bidding and card play with search, 10,000 fresh boards each:
+
+| Match | IMPs/board |
+|---|---|
+| PidginV3.1 team vs PidginV2 team (V2 bids with search) | +0.03 ± 0.11 |
+| Pidgin V3.1 bidding with search vs without, same card play | −0.02 ± 0.09 |
+
 Simplicity: a three-rule summary (open a suit from 9 HCP, 1NT from 19, a weak two up
 to 8) gives the same opening call as Pidgin V3.1 on 87.5% of 100,000 hands in second
 seat, not vulnerable. Pidgin V3 agrees on 84.6%. See [simplicity.md](simplicity.md).
