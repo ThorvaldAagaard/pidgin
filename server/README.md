@@ -34,7 +34,7 @@ curl http://localhost:8080/apis/brill/
 
 ## Play and share a board
 
-Open `/` and choose a chair. You bid and play that chair; if you declare, you also play dummy's cards. The other seats use bots. The page shows the score against double-dummy par when the board ends. Hints can be switched on during the game. **Copy link** shares the current position, including the auction and cards already played. The link encodes all four hands, so anyone with it can recover the full deal.
+Open `/` and choose a chair. You bid and play that chair; if you declare, you also play dummy's cards. The other seats use bots: one of the public teams below, Pidgin V3.1 unless you pick another in Settings. The header line names the team. Only challenges against Pidgin V3.1 are rated. The page shows the score against double-dummy par when the board ends. Hints can be switched on during the game. **Copy link** shares the current position, including the auction and cards already played. The link encodes all four hands, so anyone with it can recover the full deal.
 
 Use `/debug` to examine a position. It shows all hands and lets you change the dealer, vulnerability, chair, and models. With no chair selected you may act for all four seats; **Net: this call/card** advances one bot move and **Nets play to the end** finishes the board. A short example deals random hands with East as dealer and North-South vulnerable:
 

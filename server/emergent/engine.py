@@ -46,8 +46,9 @@ class Config:
     # and on this box they are nearly all of the price.
     defence: str = "all"              # PLAY_SEARCH_DEFENCE: off / lead / all / only
     defence_from: int = 2             # PLAY_SEARCH_DEFENCE_FROM
-    # Bidding search (emergent/bidsearch.py), /debug only and only with the page's search
-    # toggle on. The research settings: 32 belief-sampled deals, the net's top 3 calls,
+    # Bidding search (emergent/bidsearch.py): on /debug with the page's search toggle on, and
+    # always for a team that bids with search (Pidgin V2) on the table and the Brill API.
+    # The research settings: 32 belief-sampled deals, the net's top 3 calls,
     # leave its call only for a 50-point gain. A DD solve costs 30-500 ms on the droplet,
     # so the budget, not the sample count, usually decides how many deals are scored;
     # under MIN_SAMPLES solved in time the net's own call stands.

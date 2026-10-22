@@ -60,7 +60,7 @@ def test_challenge_and_its_link(client):
     # A friend opens the link: same deals, the same other table, replayed not re-run.
     k = d["challenge"]["code"]
     body = {"deals": k["c"], "auctions": k["ca"], "played": k["cp"],
-            "model": k["m"], "play_model": k["pm"], "search": k["r"]}
+            "team": k["t"], "model": k["m"], "play_model": k["pm"], "search": k["r"]}
     f = client.post("/api/table/challenge/load", json=body, headers={"X-Game": "chal-2"})
     assert f.status_code == 200 and f.json["challenge"]["code"] == k
 
