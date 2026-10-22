@@ -37,10 +37,21 @@ def client():
 def test_teams_load_on_first_use(client):
     q = {"seat": "N", "dealer": "N", "vul": "None", "ctx": "", "hand": hand_text(deal(3)[0])}
     teams.TEAMS.clear()
-    assert client.get("/apis/brill/bid", query_string=q).json["model"] not in IDS   # no default: old path
-    assert not teams.TEAMS
     assert client.get("/apis/brill/bid", query_string={**q, "model": "BRL"}).json["model"] == "BRL"
     assert list(teams.TEAMS) == ["BRL"]
+    assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM   # no model: default
+    assert list(teams.TEAMS) == ["BRL", teams.DEFAULT_TEAM]
+
+
+def test_bbo_uses_the_default_team(client):
+    """robot.php names no model: the default team bids and plays, card search and all."""
+    h = deal(3)
+    q = {"pov": "N", "d": "n", "v": "-", "n": hand_text(h[0]), "h": ""}
+    r = client.get("/apis/bbo.php", query_string=q).data.decode()
+    assert f'model="{teams.DEFAULT_TEAM}"' in r and '<r type="bid"' in r
+    q = {**q, "h": "1c-p-p-p", "pov": "E", "e": hand_text(h[1])}   # North declares 1C; East leads
+    r = client.get("/apis/bbo.php", query_string=q).data.decode()
+    assert f'model="{teams.DEFAULT_TEAM}"' in r and '<r type="play"' in r
 
 
 def test_root_lists_the_teams(client):

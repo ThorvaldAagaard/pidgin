@@ -102,8 +102,11 @@ def _load(m, models_dir):
                 bool(m.get("bid_search")), play)
 
 
+DEFAULT_TEAM = "PidginV3.1"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides
+
+
 def default_team():
-    want = os.environ.get("BRILL_DEFAULT_MODEL")
+    want = os.environ.get("BRILL_DEFAULT_MODEL") or DEFAULT_TEAM
     return want if want in MANIFEST else None
 
 

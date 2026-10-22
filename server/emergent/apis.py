@@ -8,8 +8,10 @@
   (https://brill.aalborgdata.dk/seat-api.html), BEN-compatible. Bidding and card play.
 
 Both are stateless: each request carries the whole position and is answered from it
-alone. ``model=<id>`` / ``play_model=<id>`` pick a checkpoint from models/models.json /
-models/play_models.json; the default is each list's first entry. Only four-seat bidding
+alone. ``model=<team>`` picks a team from models/teams.json (bidding and card play); with no
+``model`` the default team answers (teams.default_team: Pidgin V3.1). ``model=<id>`` /
+``play_model=<id>`` naming a checkpoint from models/models.json / models/play_models.json
+still pick those single nets. Only four-seat bidding
 models are served here. Dealer and vulnerability are real inputs to the net (the desks
 fix dealer North, nobody vulnerable; the APIs do not).
 
@@ -369,9 +371,17 @@ def register(app):
                 if (dealer + len(calls)) % 4 != pov:
                     raise ApiError(f"it is {SEATS[(dealer + len(calls)) % 4]}'s call, not {SEATS[pov]}'s")
                 hand = parse_hand(a.get("nesw"[pov], ""), "nesw"[pov])
-                mid, bot = bid_model(a.get("model"))
-                call, _ = api_call(bot, hand, calls, dealer, vul)
-                text, _alert = meaning(mid, calls, call)
+                team = brill_team(a)
+                if team is not None:
+                    bitmap = np.zeros(52, dtype=np.float32)
+                    bitmap[hand] = 1.0
+                    call, _ = teams.team_call(team, bitmap, calls, dealer, vul)
+                    mid = team.id
+                    text, _alert = meaning(getattr(team.bid, "id", ""), calls, call)
+                else:
+                    mid, bot = bid_model(a.get("model"))
+                    call, _ = api_call(bot, hand, calls, dealer, vul)
+                    text, _alert = meaning(mid, calls, call)
                 answer = f'<r type="bid" bid="{bid_token(call, "bbo")}" meaning={quoteattr(text)}/>'
             else:
                 contract = playdesk.contract_from_calls(calls, dealer)
@@ -385,7 +395,11 @@ def register(app):
                 if played:
                     other = declarer if seat == dummy_seat else dummy_seat
                     dummy = parse_hand(a.get("nesw"[other], ""), "nesw"[other])
-                mid, bot = play_model(a.get("play_model"))
+                team = brill_team(a)
+                if team is not None:
+                    mid, bot = team.id, team.play
+                else:
+                    mid, bot = play_model(a.get("play_model"))
                 card, _ = api_card(bot, seat=seat, hand=hand, dummy=dummy, played=played,
                                    calls=calls, dealer=dealer, vul=vul)
                 answer = f'<r type="play" card="{card_name(card)}"/>'
@@ -406,11 +420,12 @@ def register(app):
                        endpoints=["/apis/brill/bid", "/apis/brill/lead", "/apis/brill/play"])
 
     def brill_team(a):
-        """The team `model` (or `model_id`) names, or the default team; None: the single models."""
+        """The team `model` (or `model_id`) names, or the default team; None: the single models
+        (a checkpoint `model`, or a `play_model` with no `model`)."""
         mid = a.get("model") or a.get("model_id")
         if mid in teams.MANIFEST:
             return teams.get(mid)
-        if mid is None and teams.default_team():
+        if mid is None and not a.get("play_model") and teams.default_team():
             return teams.get(teams.default_team())
         if a.get("model_id"):
             raise ApiError(f"unknown model_id {mid!r}; known: {', '.join(teams.MANIFEST)}")
