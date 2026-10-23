@@ -17,6 +17,7 @@ The examples use released weights in `server/models/`.
 |---|---|
 | get one call for a hand | `python scripts/bid.py AKQ2.JT9.876.543 --auction "1H P" --model PidginV1` |
 | bid many random deals | `python scripts/generate_auctions.py --n 100000 --out auctions.npz` |
+| bid every board of a PBN file | `python scripts/bid_pbn.py boards.pbn bid.pbn --model PidginV2` (each board's own dealer and vulnerability; writes `[Auction]`) |
 | read the auctions as text | add `--pbn auctions.txt` (one line: deal, dealer, vulnerability, calls) |
 | bid deals that have double-dummy tables | add `--data data/dds_results_100M.npy --start 0` |
 | sample calls instead of the best call | add `--temperature 1,3,5` (one temperature drawn per deal) |

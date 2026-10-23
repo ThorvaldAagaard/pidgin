@@ -447,7 +447,9 @@ def write_pbn(path, deals, deal, dealer, vul, res, hist1, hist2, imps, name_a, n
               board_no=None):
     """Both tables of every board as PBN: room "Open" seats A North-South, "Closed" seats B
     there. [Result] is the DOUBLE-DUMMY trick count of the contract reached (only the bidding
-    was played), and the header says so. A comment after each board gives A's IMPs."""
+    was played), and the header says so. A comment before each room's tags gives A's IMPs on
+    the board -- a comment PRECEDES the game it belongs to, so one written after the Closed room
+    is read as part of the next board's Open room."""
     seats, strains, ranks = "NESW", "CDHSN", "AKQJT98765432"
     vul_tag = ("None", "NS", "EW", "All")
     hands = deals.hands.numpy()
@@ -477,7 +479,7 @@ def write_pbn(path, deals, deal, dealer, vul, res, hist1, hist2, imps, name_a, n
                                                   ("Closed", hist2, "2", name_b, name_a)):
             calls = [int(x) for x in hist[i] if x >= 0]
             c, decl, ns = int(res["c" + key][i]), int(res["d" + key][i]), int(res["ns" + key][i])
-            lines += [f'[Event "{name_a} vs {name_b} (bidding, DD result)"]', f'[Board "{i + 1 if board_no is None else int(board_no[i])}"]',
+            lines += [f"{{{name_a} {int(imps[i]):+d} IMPs}}", f'[Event "{name_a} vs {name_b} (bidding, DD result)"]', f'[Board "{i + 1 if board_no is None else int(board_no[i])}"]',
                       f'[Room "{room}"]', f'[North "{ns_name}"]', f'[East "{ew_name}"]',
                       f'[South "{ns_name}"]', f'[West "{ew_name}"]', f'[Dealer "{seats[dl]}"]',
                       f'[Vulnerable "{vul_tag[v]}"]', f'[Deal "{deal_str}"]', '[Scoring "IMP"]']
@@ -493,7 +495,6 @@ def write_pbn(path, deals, deal, dealer, vul, res, hist1, hist2, imps, name_a, n
             toks = [token(x) for x in calls]
             lines += [" ".join(toks[j:j + 4]) for j in range(0, len(toks), 4)]
             lines.append("")
-        lines += [f"{{{name_a} {int(imps[i]):+d} IMPs}}", ""]
     Path(path).write_text("\n".join(lines), encoding="utf-8")
 
 
