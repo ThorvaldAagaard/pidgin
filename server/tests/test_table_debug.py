@@ -260,7 +260,7 @@ NEW_BID_MODELS = ("hi3_s60k", "lo_s28k")
 
 def test_new_bidding_models_are_listed_after_the_default(client):
     ids = list(engine.BID_MODELS)
-    assert ids[0] == "D_cw_s75k" == engine.default_bid_model()          # / and the APIs
+    assert ids[0] == "pidginv3_1_bid_s20000" == engine.default_bid_model()          # / and the APIs
     assert ids[-2:] == list(NEW_BID_MODELS)
     d = load(client, "dbg-menu", **HANDS).json
     assert [m["id"] for m in d["models"]] == ids
@@ -358,7 +358,7 @@ def test_a_model_without_a_corpus_still_hints(client, bm):
 def test_the_main_table_is_unaffected(client):
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-plain"}).json
     assert not d["debug"] and d["debug_code"] is None
-    assert d["model"] == "D_cw_s75k" and d["play_model"] == engine.default_play_model()
-    assert d["code"]["m"] == "D_cw_s75k" and d["code"]["pm"] == d["play_model"]   # / link: m, pm
+    assert d["team"] == "PidginV3.1" and d["model"] == "pidginv3_1_bid_s20000"     # / plays a team
+    assert d["code"]["t"] == "PidginV3.1" and d["code"]["m"] == d["code"]["pm"] == ""  # / link: t
     page = client.get("/").data.decode()
-    assert 'if(c.m) q.set("m", c.m);' in page
+    assert 'if(c.m) q.set("m", c.m);' in page                          # an old link's nets still go out

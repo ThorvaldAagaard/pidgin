@@ -414,7 +414,7 @@ table.rv th{font-size:13px; color:var(--dim); font-weight:600; text-align:left; 
 table.rv td{background:var(--neg-bg); padding:6px 10px; font-family:var(--mono)}
 table.rv td:first-child{border-radius:7px 0 0 7px} table.rv td:last-child{border-radius:0 7px 7px 0}
 /* ---- /debug: the same page, all four hands up, the position spelled out in the address bar */
-.debug #challenge, .debug #rank, .debug #chair-set{display:none}
+.debug #challenge, .debug #rank, .debug #chair-set, .debug #team-set{display:none}
 #debugbar{display:none; margin:0 0 14px; padding:10px 12px; border:1px dashed var(--pick); border-radius:12px;
   background:var(--card); font-size:14px}
 .debug #debugbar{display:block}
@@ -478,7 +478,7 @@ details.recap .aq .redc{color:var(--red)}
     <button id="new-board" class="primary">New board</button>
     </div>
     <button id="rank" type="button" title="Your challenge rating. Opens the leaderboard." aria-label="Leaderboard">🏆 …</button>
-    <button id="gear" type="button" title="Settings: card theme, your chair" aria-label="Settings">⚙</button>
+    <button id="gear" type="button" title="Settings: bots, card theme, your chair" aria-label="Settings">⚙</button>
     <button id="more" type="button" aria-label="Menu" aria-expanded="false" aria-controls="tools">⋯</button>
   </div>
   <div class="meta" id="meta">dealing…</div>
@@ -550,6 +550,12 @@ details.recap .aq .redc{color:var(--red)}
         <option value="riviera">Riviera (four colours)</option><option value="champion" disabled>Champion (top of the leaderboard)</option>
       </select>
       <p class="hint" style="margin:6px 0 16px">The cards and the table, for the whole page. Kept in this browser.</p>
+      <div id="team-set">
+      <p class="sub">Bots</p>
+      <p class="hint" style="margin:0 0 10px">Which released version plays the other three chairs: its
+        bidding and its card play. Changing it deals a fresh board. <span id="team-rated"></span></p>
+      <div class="actions" id="teams" style="margin:0 0 16px"></div>
+      </div>
       <div id="chair-set">
       <p class="sub">Your chair <em style="text-transform:none;font-weight:400">North deals, nobody vulnerable</em></p>
       <p class="hint" style="margin:0 0 10px">North always deals and nobody is vulnerable: the
@@ -1780,7 +1786,9 @@ function reviewHref(c, b, who){
   if(a) q.set("a", a);
   q.set("dr", 0); q.set("v", "none");
   if(p) q.set("p", p);
-  q.set("s", "S"); q.set("m", c.code.m); q.set("pm", c.code.pm); q.set("h", 1);
+  q.set("s", "S");
+  if(c.code.t) q.set("t", c.code.t); else { q.set("m", c.code.m); q.set("pm", c.code.pm); }
+  q.set("h", 1);
   return "/#" + q.toString();
 }
 function maybeShowMatch(c, full){
@@ -1794,6 +1802,8 @@ function showMatch(c){
   const rline = rated.length
     ? `<p>Your rating: <b class="num">${rated[0].before} → ${rated[rated.length - 1].after}</b> ` +
       `(${delta({before: rated[0].before, after: rated[rated.length - 1].after})})</p>`
+    : c.team_name && c.team_name !== SRV.rated_team
+    ? `<p class="hint">Not rated: only challenges against ${SRV.rated_team} count for the leaderboard.</p>`
     : `<p class="hint">Not rated: this challenge came from a link. Press Challenge for a rated one.</p>`;
   const link = (b, who, t) => `<a href="${reviewHref(c, b, who)}" target="_blank" rel="noopener">${t}</a>`;
   $("match-title").textContent = `Challenge over · ${c.n} boards`;
@@ -1832,7 +1842,7 @@ function renderChallengeMeta(c, full){
     return `<span class="chip ${b.status === "playing" ? "now" : ""}" title="Board ${b.no}">${b.no}</span>`;
   }).join("");
   const played = c.boards.filter(shown).length;
-  $("meta").innerHTML = `<b>Challenge</b> · board ${c.i + 1} of ${c.n} · ` +
+  $("meta").innerHTML = `<b>Challenge</b>${c.team_name ? " vs " + c.team_name : ""} · board ${c.i + 1} of ${c.n} · ` +
     (played ? `you ${impWord(total)} against the bots` : `you sit South, four bots play the other table`) + chips;
 }
 
@@ -1938,6 +1948,13 @@ function renderSettings(d){
   $("seats").querySelectorAll("button").forEach(b =>
     b.onclick = () => { if(!leaveChallengeOk()) return;
       $("settings").close(); goNow(() => post("/api/table/new_board", {seat: +b.dataset.seat})); });
+  $("teams").innerHTML = d.teams.map(t =>
+    `<button data-team="${t.id}" class="${t.id===d.team?"primary":""}" style="flex:0 0 auto;min-width:0">` +
+    `${t.name}</button>`).join("");
+  $("teams").querySelectorAll("button").forEach(b =>
+    b.onclick = () => { if(!leaveChallengeOk()) return;
+      $("settings").close(); goNow(() => post("/api/table/new_board", {team: b.dataset.team})); });
+  $("team-rated").textContent = `Only challenges against ${d.rated_team} count for the leaderboard.`;
   $("setup-note").innerHTML = `Board #${d.board_no} · <span class="dim">${d.meta_long || d.meta}</span>`;
 }
 
@@ -1984,7 +2001,8 @@ $("speedseg").querySelectorAll("button").forEach(b => b.onclick = () => {
 /* ------------------------------------------------ the shared link
 
 The address bar always holds the position on screen:
-  #d=<deal>&a=<calls>&dr=0&v=none&p=<cards>&s=<seat>&m=<bid model>&pm=<play model>&h=<hints>
+  #d=<deal>&a=<calls>&dr=0&v=none&p=<cards>&s=<seat>&t=<team>&h=<hints>
+(a link from before teams has m=<bid model>&pm=<play model> instead of t, and opens those nets)
 `d`, `a` and `p` are the bid desk's and play desk's own codecs; the server sends
 them in `code`, and the page cuts `a` and `p` back to the frame it is drawing (one
 character per call, one per card), so a link copied mid-animation is exactly what
@@ -1994,7 +2012,8 @@ function linkHash(){
   if(SRV && SRV.challenge){        // a challenge link: every deal and the other table, never your own play
     const k = SRV.challenge.code, q = new URLSearchParams();
     q.set("c", k.c); q.set("ca", k.ca); q.set("cp", k.cp);
-    q.set("m", k.m); q.set("pm", k.pm); q.set("r", k.r);
+    if(k.t) q.set("t", k.t); else { q.set("m", k.m); q.set("pm", k.pm); }
+    q.set("r", k.r);
     return "#" + q.toString();
   }
   const c = SRV && SRV.code;
@@ -2006,6 +2025,7 @@ function linkHash(){
   q.set("dr", c.dr); q.set("v", c.v);
   if(p) q.set("p", p);
   q.set("s", c.s);
+  if(c.t) q.set("t", c.t);
   if(c.m) q.set("m", c.m);
   if(c.pm) q.set("pm", c.pm);
   q.set("h", c.h);
@@ -2118,7 +2138,7 @@ function notice(msg){
 
 function linkBody(p){
   return {deal: p.get("d"), auction: p.get("a") || "", played: p.get("p") || "",
-          seat: p.get("s") || "", model: p.get("m") || "", play_model: p.get("pm") || "",
+          seat: p.get("s") || "", team: p.get("t") || "", model: p.get("m") || "", play_model: p.get("pm") || "",
           hints: p.get("h"), dealer: p.get("dr") || "", vul: p.get("v") || ""};
 }
 
@@ -2153,7 +2173,8 @@ function boot(over){
       try {
         return await post("/api/table/challenge/load",
           {deals: p.get("c"), auctions: p.get("ca") || "", played: p.get("cp") || "",
-           model: p.get("m") || "", play_model: p.get("pm") || "", search: p.get("r") || "1"});
+           team: p.get("t") || "", model: p.get("m") || "", play_model: p.get("pm") || "",
+           search: p.get("r") || "1"});
       } catch(e){
         const d = await post("/api/table/new_board");
         notice(`That challenge link could not be opened — ${e.message}. Here is a fresh board instead.`);

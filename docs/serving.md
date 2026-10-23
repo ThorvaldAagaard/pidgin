@@ -25,7 +25,7 @@ docker run --rm -p 8080:8080 pidgin-brill
 curl http://localhost:8080/apis/brill/
 ```
 
-The final request lists the teams available to the Brill API. The Docker image selects `PidginV2` by default; pass `model=PidginV1`, `model=PidginV2`, or `model=BRL` on a Brill request to choose a team explicitly.
+The final request lists the teams available to the Brill API. The Docker image selects `PidginV3.1` by default; pass `model=PidginV1`, `model=PidginV2`, `model=PidginV3.1`, or `model=BRL` on a Brill request to choose a team explicitly.
 
 ## How a team answers a request
 
@@ -40,7 +40,7 @@ flowchart TD
     phase -->|Bidding| bid["Bidding model"]
     bid --> bidsearch{"Team enables bidding search?"}
     bidsearch -->|Yes: Pidgin V2| belief["Compare calls using belief-sampled deals"]
-    bidsearch -->|No: Pidgin V1 or BRL| call["Return a legal call"]
+    bidsearch -->|No: Pidgin V1, V3.1 or BRL| call["Return a legal call"]
     belief --> call
     phase -->|Card play| play["Card-play model with sampled-deal search"]
     play --> card["Return a legal card"]
@@ -63,9 +63,10 @@ the bidding-search step. For a copyable request, see the
 |---|---|---|
 | Pidgin V1 (`PidginV1`) | Pidgin V1 bidding model, stored as `D_cw_s75k.pt` | Pidgin V1 card-play model, stored as `play_E48_wideleagueH.pt`, with search |
 | Pidgin V2 (`PidginV2`) | Pidgin V2 bidding model, stored as `pidginv2_bid_s40000.pt`, with bidding search | Pidgin Q-net card-play model, stored as `play_B2g_s540k.pt`, with search |
+| Pidgin V3.1 (`PidginV3.1`) | Pidgin V3.1 bidding model, stored as `pidginv3_1_bid_s20000.pt`, without bidding search | Pidgin Q-net card-play model, stored as `play_B2g_s540k.pt`, with search |
 | BRL (`BRL`) | External BRL bidding baseline | The same Pidgin Q-net card-play model as Pidgin V2 |
 
-The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [card play](card_play.md), and [bidding search](belief.md).
+The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [Pidgin V3.1](pidgin_v3_1.md), [card play](card_play.md), and [bidding search](belief.md).
 
 ## Deploy to your own host
 

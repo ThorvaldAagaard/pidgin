@@ -54,6 +54,14 @@ def get(team_id, models_dir=engine.MODELS_DIR):
         return TEAMS[team_id]
 
 
+def available(models_dir=engine.MODELS_DIR):
+    """The team ids whose weight files are all on disk, in teams.json order."""
+    def present(m):
+        files = [m["bid"], m["play"]] + ([m["sampler"]] if "sampler" in m else [])
+        return all(os.path.exists(os.path.join(models_dir, f)) for f in files)
+    return [tid for tid, m in MANIFEST.items() if present(m)]
+
+
 def _loaded_files():
     bids = {b.file: b for b in engine.BID_MODELS.values() if getattr(b, "file", None)}
     plays = {b.file: b for b in engine.PLAY_MODELS.values() if getattr(b, "file", None)}
@@ -86,6 +94,7 @@ def _load(m, models_dir):
         if key not in plays:
             plays[key] = playq.QPlayBot(os.path.join(models_dir, m["play"]), play_bot(m["sampler"]).net)
             plays[key].file = key
+            plays[key].sampler_bot = play_bot(m["sampler"])    # the table's play hints read its policy
         play = plays[key]
     else:
         play = play_bot(m["play"])

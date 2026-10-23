@@ -38,8 +38,11 @@ def table_board(client, gid, owners, seat, model, auction="", search=False):
     """Play a board on /table from `seat`, the user always taking the hint's move."""
     h = {"X-Game": gid}
     client.post("/api/table/hints", json={"hints": True, "search": search}, headers=h)
+    # Named nets, as a pre-team link names them, so the table plays the desks' and the APIs'
+    # default card net rather than a team's (tests/test_table_teams.py covers the teams).
     s = client.post("/api/table/load", json={"deal": encode_deal(owners), "seat": SEATS[seat],
-                                             "model": model, "auction": auction, "hints": 1},
+                                             "model": model, "auction": auction, "hints": 1,
+                                             "play_model": engine.default_play_model()},
                     headers=h).json
     assert "error" not in s, s
     s = client.post("/api/table/advance", headers=h).json
@@ -124,7 +127,7 @@ def test_search_is_on_by_default_on_table_and_apis(client):
     # /table: the user leads, then declarer (a net) plays dummy's card and searches
     h = {"X-Game": "search-table"}
     s = client.post("/api/table/load", json={
-        "deal": encode_deal(owners), "seat": SEATS[leader],
+        "deal": encode_deal(owners), "seat": SEATS[leader], "play_model": engine.default_play_model(),
         "auction": "".join(bidserver.CALL_CHARS[c] for c in calls)}, headers=h).json
     assert s["search"] is True
     lead = next(c for c in range(52) if s["legal_cards"][c])

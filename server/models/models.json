@@ -1,5 +1,10 @@
 [
  {
+  "id": "pidginv3_1_bid_s20000",
+  "file": "pidginv3_1_bid_s20000.pt",
+  "label": "Pidgin V3.1 bidding"
+ },
+ {
   "id": "D_cw_s75k",
   "file": "D_cw_s75k.pt",
   "label": "Pidgin V1 bidding"

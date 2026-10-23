@@ -24,5 +24,14 @@
   "play": "play_B2g_s540k.pt",
   "play_family": "playq",
   "sampler": "play_E48_wideleagueH.pt"
+ },
+ {
+  "id": "PidginV3.1",
+  "label": "Pidgin V3.1 bidding, no bidding search · Pidgin Q-net card play with sampled-deal search",
+  "bid": "pidginv3_1_bid_s20000.pt",
+  "bid_search": false,
+  "play": "play_B2g_s540k.pt",
+  "play_family": "playq",
+  "sampler": "play_E48_wideleagueH.pt"
  }
 ]
