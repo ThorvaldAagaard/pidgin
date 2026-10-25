@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from emergent import bidserver, teams  # noqa: E402
+from emergent import bidserver, engine, teams  # noqa: E402
 from tests.test_apis import deal, hand_text, play_board  # noqa: E402
 
 IDS = ["PidginV1", "BRL", "PidginV2", "PidginV3.1"]
@@ -42,6 +42,18 @@ def test_teams_load_on_first_use(client):
     assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM   # no model: default
     assert list(teams.TEAMS) == ["BRL", teams.DEFAULT_TEAM]
 
+
+
+def test_desk_models_load_on_first_use(client):
+    """A fresh worker loads no net; the default team's first answer loads only its own."""
+    bidserver.create_app()
+    teams.TEAMS.clear()
+    assert not engine.BID_MODELS.loaded() and not engine.PLAY_MODELS.loaded()
+    assert "D_cw_s75k" in engine.BID_MODELS                  # listed all the same
+    q = {"seat": "N", "dealer": "N", "vul": "None", "ctx": "", "hand": hand_text(deal(3)[0])}
+    assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM
+    assert list(engine.BID_MODELS.loaded()) == ["pidginv3_1_bid_s20000"]   # shared with the team
+    assert list(engine.PLAY_MODELS.loaded()) == ["E48_wideleagueH"]        # the team's sampler
 
 def test_bbo_uses_the_default_team(client):
     """robot.php names no model: the default team bids and plays, card search and all."""

@@ -729,8 +729,8 @@ def state_dump(game):
         "reveal": bool(game.get("reveal")), "search": game.get("search", engine.CONFIG.search),
         "bid_only": bool(game.get("bid_only")),
         "model": game["model"], "play_model": game["play_model"],
-        "models": [{"id": b.id, "label": b.label} for b in bm.values()],
-        "play_models": [{"id": b.id, "label": b.label} for b in pmd.values()],
+        "models": [{"id": k, "label": m["label"]} for k, m in bm.entries()],
+        "play_models": [{"id": k, "label": m["label"]} for k, m in pmd.entries()],
         "team": game.get("team"), "team_name": team_name(game.get("team")),
         "teams": [{"id": k, "name": team_name(k)} for k in table_teams()],
         "rated_team": team_name(RATED_TEAM),
@@ -779,7 +779,7 @@ def state_dump(game):
 # ----------------------------------------------------------- auction teaching
 
 def corpus_table(game):
-    return DESK.CORPUS.get(game["model"]) if DESK is not None else None
+    return DESK.corpus(game["model"]) if DESK is not None else None
 
 
 def corpus_at(game, calls):

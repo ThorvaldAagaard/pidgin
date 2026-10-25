@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import threading
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -81,8 +82,61 @@ class Config:
 
 CONFIG = Config.from_env()
 
-BID_MODELS = OrderedDict()    # id -> bidding bot, filled by bidserver.load_models
-PLAY_MODELS = OrderedDict()   # id -> PlayBot, filled by playdesk.load_models
+class Registry(Mapping):
+    """id -> bot, in manifest order, each bot loaded on its first lookup.
+
+    The ids, `in` and the manifest entries cost nothing, so a page can list every model
+    while a model nobody asks for takes no memory (the live site plays one team; the
+    other nets are /debug's). `registry[id]` and `.get(id)` load; `.values()` loads all."""
+
+    def __init__(self):
+        self._entries = OrderedDict()   # id -> (manifest entry, loader)
+        self._bots = {}
+        self._lock = threading.RLock()
+
+    def register(self, entry, load):
+        """`entry` is the model's manifest dict ("id", "label", "file", ...); `load()`
+        builds its bot. Registering an id again drops the bot loaded for it."""
+        with self._lock:
+            self._entries[entry["id"]] = (entry, load)
+            self._bots.pop(entry["id"], None)
+
+    def __getitem__(self, model_id):
+        with self._lock:
+            if model_id not in self._bots:
+                self._bots[model_id] = self._entries[model_id][1]()
+            return self._bots[model_id]
+
+    def __contains__(self, model_id):
+        return model_id in self._entries
+
+    def __iter__(self):
+        return iter(list(self._entries))
+
+    def __len__(self):
+        return len(self._entries)
+
+    def entries(self):
+        """[(id, manifest entry)], loading nothing."""
+        return [(k, e) for k, (e, _) in self._entries.items()]
+
+    def id_of(self, file):
+        """The id registered for weight file `file`, or None."""
+        return next((k for k, (e, _) in self._entries.items() if e.get("file") == file), None)
+
+    def loaded(self):
+        """{id: bot} for the bots loaded so far."""
+        with self._lock:
+            return dict(self._bots)
+
+    def clear(self):
+        with self._lock:
+            self._entries.clear()
+            self._bots.clear()
+
+
+BID_MODELS = Registry()    # id -> bidding bot, registered by bidserver.load_models
+PLAY_MODELS = Registry()   # id -> PlayBot, registered by playdesk.load_models
 # One searcher per play bot, and it keeps the auction between `start` and `choose`:
 # every caller, from any page or API thread, takes this lock around the pair.
 SEARCH_LOCK = threading.Lock()

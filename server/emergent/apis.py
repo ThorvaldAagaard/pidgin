@@ -168,7 +168,7 @@ def meaning(model_id: str, calls: list[int], call: int) -> tuple[str, bool]:
     the dealer, so it describes the same position in the model's own self-play. Returns
     (text, alert): alert when the named suit is usually not held 4+ long (artificial).
     """
-    table = DESK.CORPUS.get(model_id) or {}
+    table = DESK.corpus(model_id) or {}
     entry = (table.get("-".join(call_token(c) for c in calls)) or {}).get("calls", {}).get(call_token(call))
     if call == PASS:
         return ("", False) if not entry else (f"{entry['hcp'][0]:.0f}-{entry['hcp'][2]:.0f} HCP", False)

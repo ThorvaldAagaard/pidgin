@@ -341,7 +341,7 @@ def test_the_nets_play_with_the_picked_card_model(client, monkeypatch):
 
 @pytest.mark.parametrize("bm", NEW_BID_MODELS)
 def test_a_model_without_a_corpus_still_hints(client, bm):
-    assert bm not in bidserver.CORPUS                 # no "what this call meant" table
+    assert bidserver.corpus(bm) is None                # no "what this call meant" table
     h = {"X-Game": "dbg-nocorp"}
     d = load(client, "dbg-nocorp", **HANDS, auction="1S-P", seat="S", hints="1", model=bm).json
     assert d["model"] == bm and d["hint"]["kind"] == "auction"

@@ -63,8 +63,8 @@ def available(models_dir=engine.MODELS_DIR):
 
 
 def _loaded_files():
-    bids = {b.file: b for b in engine.BID_MODELS.values() if getattr(b, "file", None)}
-    plays = {b.file: b for b in engine.PLAY_MODELS.values() if getattr(b, "file", None)}
+    """{file: bot} of the team nets built so far, by bid and by play."""
+    bids, plays = {}, {}
     for t in TEAMS.values():
         bids.setdefault(t.bid.file, t.bid)
         plays.setdefault(t.play.file, t.play)
@@ -77,16 +77,24 @@ def _load(m, models_dir):
 
     def bid_bot(file, family):
         if file not in bids:
-            path = os.path.join(models_dir, file)
-            bot = bidserver.BrlBot(path) if family == "brl" else bidserver.FourSeatBot(path)
-            bot.id, bot.file = os.path.splitext(file)[0], file
-            bids[file] = bot
+            known = engine.BID_MODELS.id_of(file)      # a desk model: share its bot
+            if known is not None:
+                bids[file] = engine.BID_MODELS[known]
+            else:
+                path = os.path.join(models_dir, file)
+                bot = bidserver.BrlBot(path) if family == "brl" else bidserver.FourSeatBot(path)
+                bot.id, bot.file = os.path.splitext(file)[0], file
+                bids[file] = bot
         return bids[file]
 
     def play_bot(file):
         if file not in plays:
-            plays[file] = playdesk.PlayBot(os.path.join(models_dir, file))
-            plays[file].file = file
+            known = engine.PLAY_MODELS.id_of(file)
+            if known is not None:
+                plays[file] = engine.PLAY_MODELS[known]
+            else:
+                plays[file] = playdesk.PlayBot(os.path.join(models_dir, file))
+                plays[file].file = file
         return plays[file]
 
     if m.get("play_family") == "playq":

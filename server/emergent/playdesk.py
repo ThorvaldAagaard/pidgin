@@ -24,6 +24,7 @@ the live position for "what each card is worth". 52 solves cost ~50 ms, so the
 per-card comparison is free. When the solver is missing, every DD field is None
 and the page says so rather than guessing.
 """
+import functools
 import json
 import os
 import threading
@@ -212,10 +213,15 @@ def load_models(models_dir=MODELS_DIR):
         file = os.path.join(models_dir, m["file"])
         if not os.path.exists(file):
             continue
-        bot = PlayBot(file)
-        bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
-        bot.note = m.get("note", "")
-        MODELS[bot.id] = bot
+        MODELS.register(m, functools.partial(load_bot, m, file))
+
+
+def load_bot(m, file):
+    """The bot for play_models.json entry `m`, on the model's first use."""
+    bot = PlayBot(file)
+    bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
+    bot.note = m.get("note", "")
+    return bot
 
 
 def models_list():
