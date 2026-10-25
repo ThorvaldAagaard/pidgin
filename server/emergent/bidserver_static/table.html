@@ -2033,7 +2033,7 @@ function renderSettings(d){
     b.onclick = () => { if(!leaveChallengeOk()) return;
       $("settings").close(); goNow(() => post("/api/table/new_board", {seat: +b.dataset.seat})); });
   $("teams").innerHTML = d.teams.map(t =>
-    `<button data-team="${t.id}" class="${t.id===d.team?"primary":""}" style="flex:0 0 auto;min-width:0">` +
+    `<button data-team="${t.id}" title="${esc(t.label || "")}" class="${t.id===d.team?"primary":""}" style="flex:0 0 auto;min-width:0">` +
     `${t.name}</button>`).join("");
   $("teams").querySelectorAll("button").forEach(b =>
     b.onclick = () => { if(!leaveChallengeOk()) return;

@@ -1,8 +1,9 @@
 # Pidgin V2 bidding
 
 Pidgin V2's released bidder is `pidginv2_bid_s40000.pt`. The complete team also
-uses [belief-based bidding search](belief.md) and the
-[Pidgin Q-net card-play model](card_play.md). Its training starts with Pidgin V1's
+uses [belief-based bidding search](belief.md) and
+[Pidgin card play V2](card_play.md) (the full-team results below used the earlier Pidgin
+Q-net card play). Its training starts with Pidgin V1's
 grounding stage, then trains on table score. Later stages add a stronger penalty
 for contracts that fail when doubled and a cost for weak opening bids.
 The [bidding model guide](bidding_model.md) explains the network layout,

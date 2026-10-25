@@ -61,9 +61,12 @@ The `model` parameter selects a complete team for `/bid`, `/lead`, and `/play`:
 | Public team ID | Bidding | Card play |
 |---|---|---|
 | `PidginV1` | Pidgin V1 bidding model | Pidgin V1 card-play model with search |
-| `PidginV2` | Pidgin V2 bidding model with search | Pidgin Q-net card-play model with search |
-| `PidginV3.1` | Pidgin V3.1 bidding model, no bidding search | Pidgin Q-net card-play model with search |
-| `BRL` | External BRL bidding baseline | Pidgin Q-net card-play model with search |
+| `PidginV2` | Pidgin V2 bidding model with search | Pidgin card play V2, no search |
+| `PidginV3.1` | Pidgin V3.1 bidding model, no bidding search | Pidgin card play V2, no search |
+| `BRL` | External BRL bidding baseline | Pidgin card play V2, no search |
+
+The table shows the `PidginV3.1` team as **Pidgin**, with "Bidding: V3.1 (VieNNa system) · Card play: V2"
+as its details (`name` and `label` in `models/teams.json`); links and the APIs keep the ID.
 
 These IDs are listed at `/apis/brill/`. The internal weight filenames are recorded in `models/teams.json` and described in [Serving](../docs/serving.md). A Brill or BBO request without `model` is answered by the `PidginV3.1` team, bidding and card play (`BRILL_DEFAULT_MODEL` picks another team). The BBO endpoint `/apis/bbo.php` takes `model=<team>` too. A checkpoint `model`, or a `play_model` without `model`, still selects single nets. Specify `model` when comparing teams so the result is unambiguous.
 

@@ -1,18 +1,24 @@
 # Card play
 
-The released teams use two kinds of card-play model. A **policy model** picks a
-card directly and learns through self-play. A **Q-net** estimates the value of
-each legal card from double-dummy solver results. On the site, both use search:
-they sample possible hidden deals, solve them, and pick the card with the best
-average result. See `training/play/search.py` and `server/emergent/engine.py`.
+The released teams use three kinds of card-play model. A **policy model** (Pidgin V1
+card play) picks a card directly and learns through self-play. **Pidgin card play V2**
+estimates the value of each legal card and learns it through self-play too, DouZero-style
+deep Monte Carlo, with no solver in training; it plays its best value without search.
+The earlier **Q-net** estimates each legal card's value from double-dummy solver results.
+Pidgin V1 card play and the Q-net use search on the site: they sample possible hidden deals,
+solve them, and pick the card with the best average result. See `training/play/search.py`
+and `server/emergent/engine.py`.
 
 | Public name | Released filename | Used by |
 |---|---|---|
-| Pidgin V1 card play | `play_E48_wideleagueH.pt` | Pidgin V1; also samples hidden deals for the Q-net. |
+| Pidgin card play V2 | `play_run6_s36-38k.pt` | Pidgin (team `PidginV3.1`), Pidgin V2 and BRL. |
+| Pidgin V1 card play | `play_E48_wideleagueH.pt` | Pidgin V1; the table's play hints for card play V2. |
 | Compact self-play card-play model | `play_E48_leagueE.pt` | Alternative in the site's debug view. |
-| Pidgin Q-net card play | `play_B2g_s540k.pt` | Pidgin V2 and BRL. |
+| Pidgin Q-net card play | `play_B2g_s540k.pt` | No team since card play V2; the reference card play V2 is measured against. |
 
-With search enabled for the current move, card selection follows this path:
+Card play V2 answers with one forward pass: its best legal value, nothing searched.
+For Pidgin V1 card play with search enabled for the current move, card selection follows
+this path:
 
 ```mermaid
 flowchart TD
@@ -23,7 +29,7 @@ flowchart TD
     model -->|Break ties| choice
 ```
 
-The Q-net uses the Pidgin V1 card-play model's belief head to sample deals.
+The Q-net used the Pidgin V1 card-play model's belief head to sample deals.
 This is separate from the [bidding belief model](belief.md). When search is off
 or does not apply to a move, the card-play model chooses directly. Search works
 with guessed hidden deals, not the opponents' actual hands.
@@ -38,6 +44,7 @@ Neither model receives the hidden hands when it makes a move.
 | Model | Position encoding and network | Outputs |
 |---|---|---|
 | Pidgin V1 policy model | 740 numbers: card ownership and play history, contract and score state, calls made by each seat, and a 96-number reading of the ordered auction. A three-layer fully connected network uses width 1,024 in the released V1 model (512 in the compact model). The auction reader embeds each call and its caller, then runs a GRU once per deal. | A probability for each of 52 cards, with illegal cards masked out; and 52 × 4 scores for which seat holds each card. |
+| Pidgin card play V2 | 2,658 numbers, seats counted from declarer: calls made by each seat, the first 24 calls in order with who made each, dealer, contract and vulnerability; then the hand on turn, the other hand it sees, cards played, led and in the current trick by each seat, trick number and position, tricks won by each side, and for every card how many higher cards of its suit are in each place (own hand, seen hand, unseen, current trick) and whether it beats the card now winning the trick. One residual network, width 1,024, six blocks, serves declarer (with dummy) and both defenders; a learned role vector is added after its first layer. | One value per card, illegal cards masked: the acting side's expected final tricks, relative to the deal's double-dummy result. |
 | Pidgin Q-net | 899 numbers: visible and played cards, trick position, contract and score state, calls made by each seat, the last six calls, and dealer position. The released checkpoint has a width-1,024, three-block residual network. | One predicted trick-value difference for each of 52 cards. Auxiliary heads output 52 × 4 card-owner scores, 4 × 4 × 14 suit-length scores, and 4 × 38 high-card-point scores; serving uses its card values. |
 
 The policy trainer also has a **critic** with a separate 384-number input that
@@ -97,6 +104,36 @@ for each training step:
     periodically evaluate on held-out deals and save a checkpoint
 ```
 
+## How card play V2 learns
+
+Card play V2 follows DouZero's deep Monte Carlo recipe. Pidgin V3.1 bids the deals (all
+four seats, greedy); the net then plays 2,048 boards at a time against itself, with 2% random
+legal cards. On 30% of boards one side is a past snapshot (a champion snapshot on 15% of those
+rounds). After each board, every decision's target is the acting side's result: declarer's
+tricks minus the deal's double-dummy trick count (a fixed number per board, read from the
+dataset, that only centres the target; declarer's side takes it, defenders its negative),
+blended with the net's own later estimates by TD(λ = 0.8). The loss is the squared error
+of the chosen card's value, plus 0.1 × an auxiliary "this card wins the trick" head and
+0.05 × a hidden-card-holder head; neither head is served. No solver runs in training,
+and the net never sees hidden hands.
+
+```text
+for each step:
+    take 2,048 deals with their Pidgin V3.1 auctions
+    play them out: the net (or a past snapshot for one side) picks the best value, 2% random cards
+    target per decision: TD(0.8) toward tricks - double-dummy tricks, from the acting side
+    two shuffled passes of squared error on the chosen cards, plus the auxiliary heads
+    keep an exponential moving average of the weights (0.995); it acts and is saved
+```
+
+The released `play_run6_s36-38k.pt` is the weight average of five snapshots of one run,
+steps 36,000 to 38,000 (about 74 million boards). The trainer's checkpoint holds three copies
+of the shared network, one per role; the serving file keeps one, in float32 (62 MB). Float16
+changed the tricks on 2 of 400 check boards, so it is not used. `server/emergent/playdmc.py`
+is a copy of the trainer's input code; on 200 evaluation boards, each played twice against
+the Q-net (card play V2 declaring, then defending), the server and the trainer took the same
+tricks on every board.
+
 ## How the Q-net learns
 
 The Q-net's data generator plays out auctions with the Pidgin V1 policy model.
@@ -147,6 +184,10 @@ ADDOLAR: the same without deals where every lead gives the same result.
 | policy net (Pidgin V1 team) | 76.5 ± 0.6% | 68.2 ± 0.8% |
 | Q-net (Pidgin V2 and BRL teams) | 81.3 ± 0.6% | 74.7 ± 0.7% |
 | top human experts (Hammond) | about 81% | about 74.7% |
+
+Card play V2 against the Q-net, both without search, 8,990 fresh boards bid by Pidgin V3.1,
+each played with V2 declaring and with V2 defending: +0.69 ± 0.05 IMPs per board. With
+sampled-deal search (20 deals) on top, V2 gained nothing (−0.07 ± 0.15), so it plays without.
 
 Declarer play, 49,927 benchmark boards, IMPs per board: policy net vs random cards
 +6.30 ± 0.03, vs the earlier policy net +0.44 ± 0.02. Q-net vs policy net, plain nets:

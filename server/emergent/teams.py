@@ -33,7 +33,7 @@ class Team:
     label: str
     bid: object            # a bidserver bidding bot
     bid_search: bool
-    play: object           # playdesk.PlayBot or playq.QPlayBot
+    play: object           # playdesk.PlayBot, playdmc.DMCPlayBot or playq.QPlayBot
 
 
 def load_manifest(models_dir=engine.MODELS_DIR):
@@ -57,7 +57,7 @@ def get(team_id, models_dir=engine.MODELS_DIR):
 def available(models_dir=engine.MODELS_DIR):
     """The team ids whose weight files are all on disk, in teams.json order."""
     def present(m):
-        files = [m["bid"], m["play"]] + ([m["sampler"]] if "sampler" in m else [])
+        files = [m["bid"], m["play"]] + [m[k] for k in ("sampler", "hints") if k in m]
         return all(os.path.exists(os.path.join(models_dir, f)) for f in files)
     return [tid for tid, m in MANIFEST.items() if present(m)]
 
@@ -72,7 +72,7 @@ def _loaded_files():
 
 
 def _load(m, models_dir):
-    from emergent import bidserver, playdesk, playq
+    from emergent import bidserver, playdesk, playdmc, playq
     bids, plays = _loaded_files()
 
     def bid_bot(file, family):
@@ -97,7 +97,13 @@ def _load(m, models_dir):
                 plays[file].file = file
         return plays[file]
 
-    if m.get("play_family") == "playq":
+    if m.get("play_family") == "dmc":
+        if m["play"] not in plays:
+            plays[m["play"]] = playdmc.DMCPlayBot(os.path.join(models_dir, m["play"]))
+            plays[m["play"]].file = m["play"]
+        play = plays[m["play"]]
+        play.hint_file = m.get("hints")
+    elif m.get("play_family") == "playq":
         key = f"{m['play']}+{m['sampler']}"
         if key not in plays:
             plays[key] = playq.QPlayBot(os.path.join(models_dir, m["play"]), play_bot(m["sampler"]).net)
@@ -108,6 +114,19 @@ def _load(m, models_dir):
         play = play_bot(m["play"])
     return Team(m["id"], m.get("label", ""), bid_bot(m["bid"], m.get("bid_family")),
                 bool(m.get("bid_search")), play)
+
+
+def hint_bot(play):
+    """The policy net the table's play hints quote for card player `play`. A value net has no
+    policy: it quotes its PIMC sampler, or its teams.json "hints" net (a play_models.json model,
+    loaded on the first hint); None if it names neither. A policy net quotes itself."""
+    if hasattr(play, "sampler_bot"):
+        return play.sampler_bot
+    if not hasattr(play, "choose_card"):
+        return play
+    file = getattr(play, "hint_file", None)
+    known = engine.PLAY_MODELS.id_of(file) if file else None
+    return engine.PLAY_MODELS[known] if known is not None else None
 
 
 DEFAULT_TEAM = "PidginV3.1"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides

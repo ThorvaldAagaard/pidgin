@@ -53,7 +53,7 @@ def test_desk_models_load_on_first_use(client):
     q = {"seat": "N", "dealer": "N", "vul": "None", "ctx": "", "hand": hand_text(deal(3)[0])}
     assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM
     assert list(engine.BID_MODELS.loaded()) == ["pidginv3_1_bid_s20000"]   # shared with the team
-    assert list(engine.PLAY_MODELS.loaded()) == ["E48_wideleagueH"]        # the team's sampler
+    assert not engine.PLAY_MODELS.loaded()      # the team plays the DMC net, not a desk model
 
 def test_bbo_uses_the_default_team(client):
     """robot.php names no model: the default team bids and plays, card search and all."""

@@ -30,10 +30,11 @@ def post(client, gid, path, **body):
 
 def test_a_fresh_tab_plays_pidgin_v3_1(client):
     d = client.get("/api/table/state", headers={"X-Game": "team-fresh"}).json
-    assert d["team"] == "PidginV3.1" and d["team_name"] == "Pidgin V3.1"
-    assert d["meta"].startswith("Bots: Pidgin V3.1 · ")
+    assert d["team"] == "PidginV3.1" and d["team_name"] == "Pidgin"          # the id stays in links
+    assert d["meta"] == "Bots: Pidgin · Bidding: V3.1 (VieNNa system) · Card play: V2"
     assert [t["id"] for t in d["teams"]] == IDS
-    assert [t["name"] for t in d["teams"]] == ["Pidgin V3.1", "Pidgin V2", "Pidgin V1", "BRL"]
+    assert [t["name"] for t in d["teams"]] == ["Pidgin", "Pidgin V2", "Pidgin V1", "BRL"]
+    assert d["teams"][0]["label"] == "Bidding: V3.1 (VieNNa system) · Card play: V2"
     assert d["code"]["t"] == "PidginV3.1" and d["code"]["m"] == "" and d["code"]["pm"] == ""
     page = client.get("/").data.decode()
     assert 'id="teams"' in page and 'if(c.t) q.set("t", c.t);' in page
@@ -64,10 +65,11 @@ def test_the_team_bids_and_plays(client, monkeypatch, team):
     if d["contract"] is not None:
         assert cards and all(b is t.play for b, _ in cards) and all(s is False for _, s in cards)
     if team != "PidginV1":
-        assert t.play.family == "playq"                              # the Q-net card player
+        assert t.play.family == "dmc"                                # the DMC value net
 
 
-def test_the_search_toggle_reaches_the_q_net(client, monkeypatch):
+def test_the_search_toggle_reaches_the_card_player(client, monkeypatch):
+    """The toggle is handed over; the DMC net plays greedy either way (tests/test_playdmc.py)."""
     gid = "team-search"
     post(client, gid, "/api/table/new_board", team="PidginV3.1", seat=0)
     post(client, gid, "/api/table/hints", search=True)

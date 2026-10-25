@@ -159,8 +159,11 @@ def default_team():
 
 
 def team_name(team_id):
-    """'PidginV3.1' -> 'Pidgin V3.1', for the page."""
-    return team_id.replace("PidginV", "Pidgin V", 1) if team_id else None
+    """The name the page shows: teams.json "name" ('PidginV3.1' -> 'Pidgin'), else the id spaced
+    ('PidginV2' -> 'Pidgin V2'). Links and the APIs keep the id."""
+    if not team_id:
+        return None
+    return teams.MANIFEST.get(team_id, {}).get("name") or team_id.replace("PidginV", "Pidgin V", 1)
 
 
 def team_of(game):
@@ -264,7 +267,7 @@ def bid_bot(game):
 
 
 def play_bot(game):
-    """The card player at the table: the team's (a Q-net for most), else the picked net."""
+    """The card player at the table: the team's (the DMC value net for most), else the picked net."""
     t = team_of(game)
     return t.play if t is not None else play_models().get(game["play_model"])
 
@@ -732,7 +735,8 @@ def state_dump(game):
         "models": [{"id": k, "label": m["label"]} for k, m in bm.entries()],
         "play_models": [{"id": k, "label": m["label"]} for k, m in pmd.entries()],
         "team": game.get("team"), "team_name": team_name(game.get("team")),
-        "teams": [{"id": k, "name": team_name(k)} for k in table_teams()],
+        "teams": [{"id": k, "name": team_name(k), "label": teams.MANIFEST[k].get("label", "")}
+                  for k in table_teams()],
         "rated_team": team_name(RATED_TEAM),
         "meta": ((f"Bots: {team_name(t.id)} · {t.label}" if t is not None else
                   "bidding: " + (bm[game["model"]].label if game["model"] in bm else "none")
@@ -1599,7 +1603,7 @@ def play_hint(game):
     turn = int(batch.to_play()[0])
     seen = known_seats(game)
     bot = play_bot(game)
-    bot = getattr(bot, "sampler_bot", bot)      # a Q-net has no policy: quote the net it samples with
+    bot = None if bot is None else teams.hint_bot(bot)   # a value net has no policy: quote a policy net
     view = None if bot is None else bot.view(contracts, batch, len(pg["played"]))
     out = {
         "kind": "play",
