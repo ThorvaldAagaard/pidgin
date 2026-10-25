@@ -43,7 +43,7 @@ from emergent.deck import (CALL_CHARS, HCP_W, N_CALLS, NAMES, RANKS, SEAT_NAMES,
                            decode_deal, encode_deal, owners_to_bitmaps, owners_to_pbn)
 
 from endplay.types import Deal, Denom, Player
-from endplay.dds import calc_all_tables
+from training.bridge.dds import calc_all_tables
 
 L = 35
 DENOMS = [Denom.spades, Denom.hearts, Denom.diamonds, Denom.clubs, Denom.nt]  # table order S H D C NT

@@ -181,7 +181,7 @@ def bid_searcher():
                 net, ck = bidsearch.BeliefMLP.load(path)
                 _BID_SEARCH["searcher"] = bidsearch.BidSearch(
                     net, CONFIG.bid_samples, CONFIG.bid_k, CONFIG.bid_margin, CONFIG.bid_budget_ms,
-                    CONFIG.bid_pmin, CONFIG.bid_min_samples, dd_lock=SEARCH_LOCK)
+                    CONFIG.bid_pmin, CONFIG.bid_min_samples)
                 bidsearch.log(f"belief net {CONFIG.belief} (step {ck.get('step')}) loaded; {CONFIG}")
             except Exception as exc:                 # noqa: BLE001 -- the page still bids
                 bidsearch.log(f"no belief net ({exc!r}): the nets bid without search")

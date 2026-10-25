@@ -58,7 +58,7 @@ BENCH = {"contracts": None, "tried": False}
 
 # endplay is optional: without it the page still plays, it just has no DD answer.
 try:
-    from endplay.dds import calc_all_tables, solve_board
+    from training.bridge.dds import calc_all_tables, solve_board
     from endplay.types import Card, Deal, Denom, Player, Rank
     DENOMS = (Denom.spades, Denom.hearts, Denom.diamonds, Denom.clubs, Denom.nt)
     PLAYERS = (Player.north, Player.east, Player.south, Player.west)

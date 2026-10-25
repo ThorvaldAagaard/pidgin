@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import math
 import sys
-import threading
 import time
 import zlib
 
@@ -294,7 +293,7 @@ _DENOM_OF_STRAIN = (3, 2, 1, 0, 4)
 
 def dd_tricks(owners, declarer, strain):
     """Double dummy tricks for `declarer` (0..3) in bid strain `strain` (C D H S NT)."""
-    from endplay.dds import analyse_start
+    from training.bridge.dds import analyse_start
     from endplay.types import Deal, Denom, Player
     deal = Deal.from_pbn(owners_to_pbn(np.asarray(owners)))
     deal.trump = Denom(_DENOM_OF_STRAIN[strain])
@@ -318,11 +317,10 @@ class BidSearch:
     """One searcher per process: the belief net plus a cache of solved contracts."""
 
     def __init__(self, net, samples=32, k=3, margin=50.0, budget_ms=2400.0, pmin=0.02,
-                 min_samples=8, dd_lock=None):
+                 min_samples=8):
         self.net = net
         self.samples, self.k, self.margin = samples, k, margin
         self.budget_ms, self.pmin, self.min_samples = budget_ms, pmin, min_samples
-        self.dd_lock = dd_lock or threading.Lock()
         self.cache = {}                 # (owners bytes, declarer, strain) -> tricks
         self.searches = 0               # searches that ran (more than one candidate)
         self.solves = 0                 # DD solves in the last search
@@ -339,8 +337,7 @@ class BidSearch:
         if ck not in self.cache:
             if len(self.cache) > 200_000:
                 self.cache.clear()
-            with self.dd_lock:
-                self.cache[ck] = dd_tricks(owners, declarer, strain)
+            self.cache[ck] = dd_tricks(owners, declarer, strain)   # one solve at a time: training.bridge.dds
             self.solves += 1
         return self.cache[ck]
 
