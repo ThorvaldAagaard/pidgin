@@ -266,8 +266,9 @@ def dd_table(owners):
 
 
 def new_game(owners=None, contract=None, calls=None, dealer=0, vul=(False, False),
-             model=None, bench_index=None, bench_dd=None):
-    """A board ready to play. `calls` wins over `contract` when both are given."""
+             model=None, bench_index=None, bench_dd=None, tricks=None):
+    """A board ready to play. `calls` wins over `contract` when both are given.
+    `tricks`, the deal's double dummy table when the caller has it, saves the solve."""
     if owners is None:
         owners = deal_owners(np.random.default_rng())
     owners = np.asarray(owners, dtype=np.int64)
@@ -292,7 +293,7 @@ def new_game(owners=None, contract=None, calls=None, dealer=0, vul=(False, False
         # This desk shows the net itself, so its cards are the net's own; /table
         # sets its own search setting on the games it builds from here.
         "search": False,
-        "tricks": dd_table(owners), "bench_index": bench_index, "bench_dd": bench_dd,
+        "tricks": dd_table(owners) if tricks is None else tricks, "bench_index": bench_index, "bench_dd": bench_dd,
         "model": model if model in MODELS else engine.default_play_model(),
     }
 

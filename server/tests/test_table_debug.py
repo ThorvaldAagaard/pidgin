@@ -126,7 +126,7 @@ def test_the_nets_see_dealer_and_vul(client, monkeypatch):
 
 def test_table_links_carry_dealer_and_vul(client):
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-6"}).json
-    assert d["dealer"] == 0 and d["vul"] == "none" and not d["debug"]    # / is unchanged
+    assert d["dealer"] == 1 and d["vul"] == "ns" and not d["debug"]      # / board 2: East, N-S
     assert any(s["hidden"] for s in d["seats"])
     body = {"deal": d["code"]["d"], "seat": "S", "dealer": "2", "vul": "all"}
     d = client.post("/api/table/load", json=body, headers={"X-Game": "dbg-6"}).json
@@ -134,7 +134,7 @@ def test_table_links_carry_dealer_and_vul(client):
     r = client.post("/api/table/load", json=dict(body, dealer="7"), headers={"X-Game": "dbg-6"})
     assert r.status_code == 400
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-6"}).json
-    assert d["dealer"] == 0 and d["vul"] == "none"                        # a new board on / goes back
+    assert d["board_no"] == 4 and d["dealer"] == 3 and d["vul"] == "all"   # then the board cycle again
 
 
 def test_hints_on_the_debug_table(client):

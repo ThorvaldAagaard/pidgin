@@ -5,6 +5,8 @@ This Flask app serves the playable bridge table, a debug table, and bot APIs. Th
 | Path | What it does |
 |---|---|
 | `/` or `/table` | Play one seat against three bots, with optional hints, challenges, and scoring. |
+| `/?mode=bid` | Bidding only: bid one seat against Pidgin V3.1, then see the contract scored double dummy, with no card play. |
+| `/card` | The Pidgin V3.1 convention card (`emergent/bidserver_static/card.html`). |
 | `/debug` | Inspect a deal with all hands visible; choose seats, dealer, vulnerability, and models. |
 | `/bench` | Learn how to compare bidding bots on fixed deals; running a comparison requires the benchmark file. |
 | `/apis/brill/` | Discover the stateless Brill Seat Robot API and its available teams. |
@@ -35,6 +37,10 @@ curl http://localhost:8080/apis/brill/
 ## Play and share a board
 
 Open `/` and choose a chair. You bid and play that chair; if you declare, you also play dummy's cards. The other seats use bots: one of the public teams below, Pidgin V3.1 unless you pick another in Settings. The header line names the team. Only challenges against Pidgin V3.1 are rated. The page shows the score against double-dummy par when the board ends. Hints can be switched on during the game. **Copy link** shares the current position, including the auction and cards already played. The link encodes all four hands, so anyone with it can recover the full deal.
+
+Dealer and vulnerability follow the board number as at a duplicate club (board 1: North, nobody; board 2: East, North-South; and so on over 16 boards). Challenges stay at North, nobody. Outside a challenge, **Show all hands** turns the other hands face up and **Skip the play** lets the bots play every remaining card, yours too. When you are dummy you see all four hands once the opening lead is out.
+
+**Bidding only** (`/?mode=bid`) ends the board with the auction: all four hands face up, the contract scored at its double-dummy tricks, and par. The bots are always Pidgin V3.1 with no bidding search. The deals are the first 90,000 rows of `models/bench_100k.npz`, which carry their double-dummy tables, so no board needs a solve. The page sends `X-Mode: bid` with each request. Challenges are not offered there. The header links to the convention card (`/card`) once the server has it.
 
 Use `/debug` to examine a position. It shows all hands and lets you change the dealer, vulnerability, chair, and models. With no chair selected you may act for all four seats; **Net: this call/card** advances one bot move and **Nets play to the end** finishes the board. A short example deals random hands with East as dealer and North-South vulnerable:
 
