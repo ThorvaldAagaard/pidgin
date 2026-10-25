@@ -1,0 +1,163 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>VieNNa article</title><style>body{max-width:760px;margin:2em auto;font:16px/1.5 Georgia,serif;padding:0 16px}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:4px 10px}</style><h1>A bidding system a neural net came up with, and a request for feedback</h1>
+<p>I don't play bridge. I write software, and I trained a neural net to bid. The bot is called Pidgin, and it ended up with a fairly natural system that did well in bidding matches against other bots. I'm not the person to judge whether that is interesting, so I'm posting what we found and hoping you'll tell us what we're missing.</p>
+<p>My friend Lorand Dali and I worked together years ago. Around then he was building the bridge bot that became <a href="https://github.com/lorserker/ben">BEN</a>, and that got me trying to teach a bot to bid with reinforcement learning. I didn't get far and put it in a drawer. This year I took it out again with one question: how do two partners invent a language? The net plays deals, sees only its own hand and the calls at the table, and gets the score at the end. Nobody tells it what 1♠ means, when to bid 3NT, or how to ask for aces.</p>
+<p>We call the system <strong>VieNNa</strong>, because it reminded us of older, more natural systems like Vienna, even though the details differ. The NN is for neural net.</p>
+<h2>How it learned</h2>
+<p>It started tiny. In the first experiment one player could send one of five messages and partner had to pick the contract. The net learned that one message meant "lots of spades", another "lots of hearts", and one "none of the above". I never programmed those meanings. They appeared because sharing that information helped the partnership score. Then I let partner answer, then allowed longer auctions, then brought in opponents and let the two sides fight over the score. It never saw an expert auction. Late in training it also played against other bots.</p>
+<p>I charged it a small cost for "code words", calls partner can't take at face value. That pushed it toward bids that mean what they say, without getting rid of them entirely.</p>
+<h2>The openings</h2>
+<p>The openings of the current version (Pidgin V3.1) fit in three rules:</p>
+<ol>
+<li>With 19 HCP or more, open 1NT.</li>
+<li>With 9 to 18 HCP, open one of a suit.</li>
+<li>With 8 HCP or less, pass or open a weak two.</li>
+</ol>
+<p>On 100,000 test hands these rules give the same opening as the bot 87.5% of the time. (That test was in second seat, not vulnerable. The table below is first seat.) Some details:</p>
+<ul>
+<li>1NT is the big hand: 19 or more, any shape. Only 38% of its 1NT openings are balanced. Partner passes less than 1% of the time, and only with 0 to 3 HCP.</li>
+<li>There is no strong 2♣. All four two-level openings are weak, 2♣ included.</li>
+<li>Suit openings promise four cards. No short club, no prepared diamond.</li>
+</ul>
+<p>What the bot opens, by HCP (first seat, not vulnerable):</p>
+<table>
+<thead>
+<tr>
+<th>HCP</th>
+<th>One of a suit</th>
+<th>1NT</th>
+<th>Weak two</th>
+<th>Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0-7</td>
+<td>0%</td>
+<td>0%</td>
+<td>20%</td>
+<td>80%</td>
+</tr>
+<tr>
+<td>8</td>
+<td>48%</td>
+<td>0%</td>
+<td>16%</td>
+<td>35%</td>
+</tr>
+<tr>
+<td>9-11</td>
+<td>91%</td>
+<td>0%</td>
+<td>4%</td>
+<td>4%</td>
+</tr>
+<tr>
+<td>12-16</td>
+<td>99%</td>
+<td>1%</td>
+<td>0%</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>17-18</td>
+<td>80%</td>
+<td>18%</td>
+<td>0%</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>19</td>
+<td>37%</td>
+<td>64%</td>
+<td>0%</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>20+</td>
+<td>1%</td>
+<td>98%</td>
+<td>0%</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<p>The rules get fuzzy at 8 and at 19, and elsewhere the bot stays close to them.</p>
+<h2>After the opening</h2>
+<p>After a one-bid, a new suit by responder is not forcing. Opener passes 1♥–1♠ about a quarter of the time, and passes a two-level new suit (5+ cards, 4 to 12 HCP) 37–50% of the time. The forcing response is 1NT. It shows 10 to 19 HCP, and opener passes it less than 1% of the time. That is the reverse of what most of you play.</p>
+<p>Low-level doubles are for penalty. At the one level the doubler holds four or more of their suit 91% of the time. It still competes: after 1♥ P P, the fourth player does something other than pass 63% of the time.</p>
+<h2>What we measured</h2>
+<p>I played VieNNa against other bots on 10,000 new deals not used in training. Each deal was played with all four dealers and all four vulnerabilities, at two tables with the seats swapped, so 160,000 boards per match. Only the bidding was tested: the final contract was scored double dummy, the tricks a perfect player would take seeing all four hands. Scores are IMPs per board for VieNNa.</p>
+<p>The closest matches were against the BRL bots, from a 2024 paper by Kita, Koyamada, Yamaguchi and Ishii ("A Simple, Solid, and Reproducible Baseline for Bridge Bidding AI", IEEE Conference on Games). In their tests the FSP model beat WBridge5, a long-time computer champion, by 1.24 IMPs per board and the RL model by 0.88. Their setup differs from mine, so the numbers don't carry over, but these are strong bidders. They open almost every hand, 0 HCP hands included, and more than half of their openings are artificial, which most tournaments would not allow. On these tests VieNNa bids about as well with calls a person can follow.</p>
+<table>
+<thead>
+<tr>
+<th>Opponent</th>
+<th>What it is</th>
+<th>IMPs/board</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Brill</td>
+<td>rule-based bidder, <a href="https://brill.aalborgdata.dk/">brill.aalborgdata.dk</a></td>
+<td>+1.37 ± 0.07</td>
+</tr>
+<tr>
+<td>BEN, SAYC</td>
+<td>open-source bot, <a href="https://github.com/lorserker/ben">lorserker/ben</a></td>
+<td>+1.45 ± 0.07</td>
+</tr>
+<tr>
+<td>BEN, 2/1 game force</td>
+<td>same</td>
+<td>+1.44 ± 0.07</td>
+</tr>
+<tr>
+<td>BEN, GIB style</td>
+<td>same</td>
+<td>+1.43 ± 0.07</td>
+</tr>
+<tr>
+<td>EPBot, 2/1</td>
+<td>rule-based engine by Edward Piwowar, inside Bridge Bot Analyzer, <a href="https://github.com/EdwardPiwowar/BBA">EdwardPiwowar/BBA</a></td>
+<td>+1.12 ± 0.07</td>
+</tr>
+<tr>
+<td>EPBot, SAYC</td>
+<td>same</td>
+<td>+1.07 ± 0.07</td>
+</tr>
+<tr>
+<td>BRL, FSP model (<code>model-pretrained-rl-with-fsp</code>)</td>
+<td>neural net, <a href="https://github.com/harukaki/brl">harukaki/brl</a></td>
+<td>+0.20 ± 0.06</td>
+</tr>
+<tr>
+<td>BRL, RL model (<code>model-pretrained-rl</code>)</td>
+<td>same</td>
+<td>−0.04 [−0.09, +0.01]</td>
+</tr>
+</tbody>
+</table>
+<p>The intervals are 95%. VieNNa won seven of the eight matches; against BRL's RL model it is too close to call. Three things these matches leave out:</p>
+<p>The play was double dummy. That removes card-play noise, and it also means nobody measured how humans would play these contracts.</p>
+<p>The other bots were not told what VieNNa's bids mean, as human opponents would be. Brill is the exception, since it can be told the system. On the same 160,000 boards VieNNa then won by +1.31 ± 0.07, against +1.37 when Brill didn't know.</p>
+<p>Part of the training was played against BRL, EPBot and BEN, on different deals from the test, so the bot had a chance to learn their habits. Brill was never in training, and the margin against it (+1.37) is close to the one against BEN.</p>
+<h2>What about conventions?</h2>
+<p>We looked for home-made versions of Stayman, Blackwood and other conventions, and didn't find any.</p>
+<p>The training cost counted three kinds of call as code words: a suit bid on fewer than four cards (three when raising partner), a double at the three level or lower, and a redouble. VieNNa makes about 11 of these per 100 auctions. An auction has about 11 calls, so that is about one call in a hundred.</p>
+<p>I went through them by hand. In about two out of three low doubles the doubler holds four or more of the opponents' suit, and only about one in fifteen looks like takeout.</p>
+<p>The short suit bids are mostly raises, typically to game with two cards after partner has bid a suit twice and so shown six.</p>
+<p>4NT comes up in about 3 auctions in 100 and is not Blackwood. The reply has nothing to do with how many aces partner holds. Partner usually names a real four-card or longer suit, so 4NT works as "pick a slam". A new suit shows four or more cards 99.75% of the time, so no Stayman or transfers are hiding in there either.</p>
+<h2>Is this new?</h2>
+<p>Only partly, as far as I can tell. Several pieces have been played before, though I haven't found anyone playing the whole mix.</p>
+<p>One bid is close to the old Vienna system. Paul Stern's <a href="https://en.wikipedia.org/wiki/Vienna_System_(bridge)">Vienna System</a> of 1935 opened 1NT with a "maximum opener (at least about 18 HCP in modern terms), undefined hand, forcing". That is close to VieNNa's 1NT. Vienna's 1♣, a forcing minimum with no five-card suit, has no VieNNa counterpart.</p>
+<p>Weak twos in all four suits, 2♣ included, are the heart of <a href="https://en.wikipedia.org/wiki/EHAA">EHAA</a>, which has been around since at least the late 1950s (<a href="https://blakjak.org/ehaa_faq.htm">FAQ</a>). EHAA two-bids are 6 to 12 HCP on a five-card suit. VieNNa's are weaker and almost always six cards.</p>
+<p>The non-forcing new suit is older still. According to <a href="https://en.wikipedia.org/wiki/Theodore_Lightner">Wikipedia</a>, Theodore Lightner was the first to suggest that a change of suit by responder should be forcing. Before that only a jump in a new suit forced. <a href="https://en.wikipedia.org/wiki/Acol">Acol</a> plays new suits as forcing for one round, as do the systems most of you play now.</p>
+<p>The 1NT <em>response</em> is a different story. After partner opens one of a suit, VieNNa's 1NT shows 10 to 19 HCP and is forcing. I couldn't find an older system that does this. The <a href="https://en.wikipedia.org/wiki/Forcing_notrump">forcing notrump</a> most of you know is the weak 6 to 12 hand.</p>
+<p>So the parts come from different places: a 1NT opening like Vienna's, weak twos like EHAA's, new suits that are not forcing like before Lightner, and a strong forcing 1NT response I haven't seen elsewhere. The net was not shown any of these systems.</p>
+<h2>Could humans play it?</h2>
+<p>Humans have barely tried it. Lorand and a friend from Discord, muppetpuppet, played some random deals with it on BBO, mostly at a bidding table. They didn't study the bot's habits, just played the three opening rules and bid naturally after that. Lorand: "It went much smoother than I expected, and only once I felt disoriented and didn't know what to do during the bidding." One pair and a handful of deals is not much, which is part of why I'm posting.</p>
+<p>A beginner can learn the three opening rules in one sitting, though the rest of the auction takes longer.</p>
+<p>You can try it yourself. At <a href="https://bridge.localgeek.jp/">bridge.localgeek.jp</a> you can play boards with the bots, or <a href="https://bridge.localgeek.jp/?mode=bid">practise only the bidding</a> with a VieNNa partner and see the double-dummy result after each auction. There is also a <a href="https://bridge.localgeek.jp/card">convention card</a>. I made it by watching what the bot bid in a million self-play auctions and writing down what each call usually showed. Nobody has played from it, so I don't know if a human pair could, and some lines may be wrong. I hope it gives a more detailed picture of how the bidding works than the three rules do. The code, the models and the match results are on <a href="https://github.com/hsperr/pidgin">GitHub</a>.</p>
+<p>If you have a partner willing to try the three opening rules for an evening, tell me where the system breaks. If it reminds you of a system you know, tell me which one. And if you can see why the net opens so light, or why it put every strong hand into 1NT whatever the shape, I'd like to hear that too. Experienced players will spot patterns I missed. I'll be in the comments. After all, I still don't play bridge.</p>

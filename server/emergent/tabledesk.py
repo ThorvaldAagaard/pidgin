@@ -2305,6 +2305,11 @@ def register(app):
         """The convention card the table links to; a 404 until card.html is in the static folder."""
         return send_from_directory(STATIC_DIR, "card.html")
 
+    @app.get("/articles/<name>.html")
+    def article_page(name):
+        """Write-ups about the bots, from bidserver_static/articles/; a 404 for any other name."""
+        return send_from_directory(os.path.join(STATIC_DIR, "articles"), name + ".html")
+
     @app.get("/debug")
     def debug_page():
         """The same page; it sees /debug in its own address and loads through /api/table/debug."""
