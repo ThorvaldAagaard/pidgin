@@ -4,6 +4,7 @@ The released teams use three kinds of card-play model. A **policy model** (Pidgi
 card play) picks a card directly and learns through self-play. **Pidgin card play V2**
 estimates the value of each legal card and learns it through self-play too, DouZero-style
 deep Monte Carlo, with no solver in training; it plays its best value without search.
+**Pidgin card play V3** is the same kind of network, trained further with the same recipe.
 The earlier **Q-net** estimates each legal card's value from double-dummy solver results.
 Pidgin V1 card play and the Q-net use search on the site: they sample possible hidden deals,
 solve them, and pick the card with the best average result. See `training/play/search.py`
@@ -11,12 +12,13 @@ and `server/emergent/engine.py`.
 
 | Public name | Released filename | Used by |
 |---|---|---|
-| Pidgin card play V2 | `play_run6_s36-38k.pt` | Pidgin (team `PidginV3.1`), Pidgin V2 and BRL. |
-| Pidgin V1 card play | `play_E48_wideleagueH.pt` | Pidgin V1; the table's play hints for card play V2. |
+| Pidgin card play V3 | `play_run18_s4000.pt` | Pidgin V3.2 (team `PidginV3.2`, the default team). |
+| Pidgin card play V2 | `play_run6_s36-38k.pt` | Pidgin V3.1, Pidgin V2 and BRL. |
+| Pidgin V1 card play | `play_E48_wideleagueH.pt` | Pidgin V1; the table's play hints for card play V2 and V3. |
 | Compact self-play card-play model | `play_E48_leagueE.pt` | Alternative in the site's debug view. |
 | Pidgin Q-net card play | `play_B2g_s540k.pt` | No team since card play V2; the reference card play V2 is measured against. |
 
-Card play V2 answers with one forward pass: its best legal value, nothing searched.
+Card play V2 and V3 answer with one forward pass: its best legal value, nothing searched.
 For Pidgin V1 card play with search enabled for the current move, card selection follows
 this path:
 
@@ -133,6 +135,36 @@ changed the tricks on 2 of 400 check boards, so it is not used. `server/emergent
 is a copy of the trainer's input code; on 200 evaluation boards, each played twice against
 the Q-net (card play V2 declaring, then defending), the server and the trainer took the same
 tricks on every board.
+
+## Card play V3
+
+Card play V3 (`play_run18_s4000.pt`) has the same input, network and serving format as card
+play V2: one shared network, width 1,024, six blocks, 2,658 inputs, float32 (62 MB).
+`server/emergent/playdmc.py` loads it unchanged.
+
+It was trained with the same DouZero-style recipe as above, in the lab repository
+(`lab/experiments/douzero_play`). Run 14 used this recipe with 208 extra "oracle" input columns
+that are always zero when the net plays. Run 18 (`runs/douzero_play/run18_branch_leads`)
+continued run 14 from its step 3,000 for 1,000 steps and added true-deal branching at leads.
+In each round of 2,048 boards the trainer picks one lead to a trick (the opening lead in 25% of
+rounds, otherwise the lead to a random later trick). There it plays every legal card on the
+true deal and lets the current nets play out the rest. The net then learns a value for every
+legal lead from these results, not only for the card that was played. The released file is
+run 18's checkpoint at step 4,000. The script
+`lab/experiments/ranking/cardnets/to_server.py` cut the 208 oracle columns and wrote the
+serving file. The server and the trainer took the same tricks on all 2,000 check boards
+(1,000 boards, each chair, against the Q-net).
+
+Results, card play only: Pidgin V3.1 auctions fixed in advance (dataset contract rows 1,000
+to 9,989, 8,990 boards), greedy, no search, IMPs per board with a 95% interval:
+
+| Match | IMPs/board |
+|---|---|
+| Card play V3 vs the Q-net, both chairs | +0.834 ± 0.051 |
+| Card play V2 vs the Q-net, both chairs (same boards) | +0.688 ± 0.052 |
+| Card play V3 vs card play V2, duplicate | +0.294 ± 0.090 |
+| of which declarer play | +0.217 ± 0.080 |
+| of which defence | +0.075 ± 0.078 |
 
 ## How the Q-net learns
 

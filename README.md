@@ -15,7 +15,7 @@ No expert auctions or bidding labels are required.
 | `server/` | The site and APIs that serve the models ([docs/serving.md](docs/serving.md)). |
 | `belief/` | Belief net for the bidding search ([docs/belief.md](docs/belief.md)). |
 | `qnet/` | Card-play Q-net trainer and its data pipeline ([docs/card_play.md](docs/card_play.md)). |
-| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [Pidgin V3.1](docs/pidgin_v3_1.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). How simple they bid: [simplicity](docs/simplicity.md). |
+| `docs/` | How each served model was trained: [Pidgin V1](docs/pidgin_v1.md), [Pidgin V2](docs/pidgin_v2.md), [Pidgin V3.1](docs/pidgin_v3_1.md), [Pidgin V3.2](docs/pidgin_v3_2.md), [belief](docs/belief.md), [card play](docs/card_play.md). How they score: [results](docs/results.md). How simple they bid: [simplicity](docs/simplicity.md). |
 | `scripts/` | Commands to use the models: download, bid, generate auctions, serve ([scripts/README.md](scripts/README.md)). |
 | `tools/` | Matches, dashboard, analysis. |
 
@@ -65,7 +65,7 @@ PidginV1 as S: 1S
 
 The hand uses spades.hearts.diamonds.clubs, with `T` for ten. `--auction` is the
 public calls so far (`P` means pass); the hand belongs to the next player to call.
-`--model` picks a team (`PidginV1`, `PidginV2`, `PidginV3.1`, `BRL`) or a checkpoint file.
+`--model` picks a team (`PidginV1`, `PidginV2`, `PidginV3.1`, `PidginV3.2`, `BRL`) or a checkpoint file.
 These command-line tools use the bidding network directly. The Pidgin V2 team
 through the Brill API also uses bidding search, so its calls can differ from
 the scripts.

@@ -140,8 +140,9 @@ def play_models():
     return engine.PLAY_MODELS
 
 
-# The team / plays by default, and the only one a rated challenge is played against:
-# one leaderboard means one opponent. BRILL_DEFAULT_MODEL moves both.
+# The only team a rated challenge is played against: one leaderboard means one opponent.
+# It is fixed here, apart from the default team (teams.DEFAULT_TEAM, BRILL_DEFAULT_MODEL),
+# so a new default team does not move the ratings.
 RATED_TEAM = "PidginV3.1"
 
 
@@ -159,8 +160,8 @@ def default_team():
 
 
 def team_name(team_id):
-    """The name the page shows: teams.json "name" ('PidginV3.1' -> 'Pidgin'), else the id spaced
-    ('PidginV2' -> 'Pidgin V2'). Links and the APIs keep the id."""
+    """The name the page shows: teams.json "name", else the id spaced ('PidginV3.2' ->
+    'Pidgin V3.2'). Links and the APIs keep the id."""
     if not team_id:
         return None
     return teams.MANIFEST.get(team_id, {}).get("name") or team_id.replace("PidginV", "Pidgin V", 1)
@@ -2153,7 +2154,7 @@ def challenge_from_link(body, prev):
 def rated(ch):
     """Whether a dealt challenge counts for the rating: only against `RATED_TEAM`, so the
     bots' fixed 1500 always means the same bots. Other teams play the same match, unrated."""
-    return ch.get("team") is not None and ch["team"] == (teams.default_team() or RATED_TEAM)
+    return ch.get("team") is not None and ch["team"] == RATED_TEAM
 
 
 def challenge_board(ch, prev_board_no):

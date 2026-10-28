@@ -129,7 +129,7 @@ def hint_bot(play):
     return engine.PLAY_MODELS[known] if known is not None else None
 
 
-DEFAULT_TEAM = "PidginV3.1"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides
+DEFAULT_TEAM = "PidginV3.2"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides
 
 
 def default_team():

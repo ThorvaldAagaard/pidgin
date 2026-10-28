@@ -73,3 +73,19 @@ def test_slim_keeps_one_core_in_float32():
     assert set(sd) >= {"net", "width", "depth", "feat_dim", "step"}
     assert all(v.dtype == torch.float32 for v in sd["net"].values())
     assert sd["net"]["inp.weight"].shape == (sd["width"], 2658) and sd["net"]["role_emb"].shape[0] == 3
+
+
+@pytest.mark.skipif(not (ROOT / "models" / "play_run18_s4000.pt").exists(),
+                    reason="models/play_run18_s4000.pt not synced")
+def test_card_play_v3_is_its_own_dmc_net(team):
+    """PidginV3.2: the V3.1 bidder, card play V3 (play_run18_s4000.pt) in the same format."""
+    v3 = teams.get("PidginV3.2")
+    assert v3.bid is team.bid and v3.play is not team.play
+    assert v3.play.family == "dmc" and v3.play.file == "play_run18_s4000.pt"
+    g = board(7)
+    c = playdesk.contracts_of(g)
+    while len(g["played"]) < 52:
+        b = playdesk.batch_of(g, c)
+        card, _ = engine.choose_card(v3.play, c, b, search=False)
+        assert playdesk.play_card(g, card, b)
+    assert 0 <= int(playdesk.batch_of(g, c).declarer_tricks()[0]) <= 13

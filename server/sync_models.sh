@@ -53,6 +53,11 @@ torch.save(playdmc.slim(torch.load(sys.argv[1], map_location="cpu", weights_only
 print(f"   {sys.argv[2]}  from {sys.argv[1]}")
 PY
 
+# Card play V3 (docs/card_play.md): run18_branch_leads step 4000, already in the server format
+# (lab/experiments/ranking/cardnets/to_server.py cut its 208 oracle input columns).
+cp "$SRC/runs/ranking/ship/play_run18_s4000.pt" models/play_run18_s4000.pt
+echo "   models/play_run18_s4000.pt"
+
 echo "==> /bench analysis (frozen copies of ../tools)"
 cp "$PUBLIC/tools/weakspots.py" "$PUBLIC/tools/simplicity.py" emergent/analysis/
 

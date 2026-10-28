@@ -30,11 +30,19 @@
  },
  {
   "id": "PidginV3.1",
-  "name": "Pidgin",
   "label": "Bidding: V3.1 (VieNNa system) · Card play: V2",
   "bid": "pidginv3_1_bid_s20000.pt",
   "bid_search": false,
   "play": "play_run6_s36-38k.pt",
+  "play_family": "dmc",
+  "hints": "play_E48_wideleagueH.pt"
+ },
+ {
+  "id": "PidginV3.2",
+  "label": "Bidding: V3.1 (VieNNa system) · Card play: V3",
+  "bid": "pidginv3_1_bid_s20000.pt",
+  "bid_search": false,
+  "play": "play_run18_s4000.pt",
   "play_family": "dmc",
   "hints": "play_E48_wideleagueH.pt"
  }

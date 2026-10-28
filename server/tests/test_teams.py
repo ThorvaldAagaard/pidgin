@@ -1,4 +1,4 @@
-"""The Brill API's teams (models/teams.json): PidginV1, BRL, PidginV2, PidginV3.1 by `model=<id>`.
+"""The Brill API's teams (models/teams.json): PidginV1, BRL, PidginV2, PidginV3.1, PidginV3.2 by `model=<id>`.
 
     python3 -m pytest -q tests/test_teams.py
 """
@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from emergent import bidserver, engine, teams  # noqa: E402
 from tests.test_apis import deal, hand_text, play_board  # noqa: E402
 
-IDS = ["PidginV1", "BRL", "PidginV2", "PidginV3.1"]
+IDS = ["PidginV1", "BRL", "PidginV2", "PidginV3.1", "PidginV3.2"]
 
 
 class WithModel:

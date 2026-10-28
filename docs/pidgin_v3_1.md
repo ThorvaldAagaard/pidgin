@@ -3,8 +3,9 @@
 Pidgin V3.1's released bidder is `pidginv3_1_bid_s20000.pt`. The `PidginV3.1` team
 bids with the network alone, without bidding search, and plays the cards with
 [Pidgin card play V2](card_play.md) (the full-board results below used the earlier Pidgin
-Q-net card play). The table shows this team as **Pidgin**. It is the default team of the Docker
-image and the default bidder of the table at <https://bridge.localgeek.jp/>.
+Q-net card play). The table shows this team as **Pidgin V3.1**; rated challenges are played
+against it. [Pidgin V3.2](pidgin_v3_2.md), the default team, bids with the same model and plays
+the cards with Pidgin card play V3.
 
 To ask the released Pidgin V3.1 bidder for a call:
 

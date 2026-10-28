@@ -9,7 +9,7 @@
 
 Both are stateless: each request carries the whole position and is answered from it
 alone. ``model=<team>`` picks a team from models/teams.json (bidding and card play); with no
-``model`` the default team answers (teams.default_team: Pidgin V3.1). ``model=<id>`` /
+``model`` the default team answers (teams.default_team: Pidgin V3.2). ``model=<id>`` /
 ``play_model=<id>`` naming a checkpoint from models/models.json / models/play_models.json
 still pick those single nets. Only four-seat bidding
 models are served here. Dealer and vulnerability are real inputs to the net (the desks

@@ -15,7 +15,7 @@ from emergent import bidserver, engine, teams  # noqa: E402
 from tests.test_table_challenge import finish_board  # noqa: E402
 
 td = bidserver.tabledesk
-IDS = ["PidginV3.1", "PidginV2", "PidginV1", "BRL"]          # as Settings lists them
+IDS = ["PidginV3.2", "PidginV3.1", "PidginV2", "PidginV1", "BRL"]          # as Settings lists them
 
 
 @pytest.fixture(scope="module")
@@ -28,14 +28,14 @@ def post(client, gid, path, **body):
     return client.post(path, json=body, headers={"X-Game": gid})
 
 
-def test_a_fresh_tab_plays_pidgin_v3_1(client):
+def test_a_fresh_tab_plays_pidgin_v3_2(client):
     d = client.get("/api/table/state", headers={"X-Game": "team-fresh"}).json
-    assert d["team"] == "PidginV3.1" and d["team_name"] == "Pidgin"          # the id stays in links
-    assert d["meta"] == "Bots: Pidgin · Bidding: V3.1 (VieNNa system) · Card play: V2"
+    assert d["team"] == "PidginV3.2" and d["team_name"] == "Pidgin V3.2"     # the id stays in links
+    assert d["meta"] == "Bots: Pidgin V3.2 · Bidding: V3.1 (VieNNa system) · Card play: V3"
     assert [t["id"] for t in d["teams"]] == IDS
-    assert [t["name"] for t in d["teams"]] == ["Pidgin", "Pidgin V2", "Pidgin V1", "BRL"]
-    assert d["teams"][0]["label"] == "Bidding: V3.1 (VieNNa system) · Card play: V2"
-    assert d["code"]["t"] == "PidginV3.1" and d["code"]["m"] == "" and d["code"]["pm"] == ""
+    assert [t["name"] for t in d["teams"]] == ["Pidgin V3.2", "Pidgin V3.1", "Pidgin V2", "Pidgin V1", "BRL"]
+    assert d["teams"][0]["label"] == "Bidding: V3.1 (VieNNa system) · Card play: V3"
+    assert d["code"]["t"] == "PidginV3.2" and d["code"]["m"] == "" and d["code"]["pm"] == ""
     page = client.get("/").data.decode()
     assert 'id="teams"' in page and 'if(c.t) q.set("t", c.t);' in page
 
@@ -118,6 +118,7 @@ def test_debug_has_no_team(client):
 
 def test_only_the_rated_team_is_rated(client):
     assert td.rated({"team": "PidginV3.1"})
+    assert not td.rated({"team": td.default_team()})             # the default team (V3.2) is not
     assert not td.rated({"team": "PidginV2"}) and not td.rated({"team": None})
     h = {"X-Game": "team-chal"}
     post(client, "team-chal", "/api/table/new_board", team="BRL")
