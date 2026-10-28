@@ -1,13 +1,13 @@
-# The Brill Seat Robot API with four bots, for serving locally:
+# The Brill Seat Robot API with five bots, for serving locally:
 #   docker build -f server/Dockerfile -t pidgin-brill .   # from the repo root
 #   docker run --rm -p 8080:8080 pidgin-brill
-#   curl 'localhost:8080/apis/brill/'          -> models: PidginV1, BRL, PidginV2, PidginV3.1
+#   curl 'localhost:8080/apis/brill/'          -> models: PidginV1, BRL, PidginV2, PidginV3.1, PidginV3.2
 # Pick a bot with model=<id> (or model_id=<id>) on /apis/brill/{bid,lead,play}; without one,
 # BRILL_DEFAULT_MODEL answers. The rest of the site (the table at /) runs too.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 \
-    MPLCONFIGDIR=/tmp/mpl BRILL_DEFAULT_MODEL=PidginV3.1 \
+    MPLCONFIGDIR=/tmp/mpl BRILL_DEFAULT_MODEL=PidginV3.2 \
     PLAY_SEARCH_DEFENCE_FROM=0
 WORKDIR /app
 
