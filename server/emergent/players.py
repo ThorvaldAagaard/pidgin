@@ -15,6 +15,9 @@ the other table's moves and anyone can write one. A board counts once per player
 keyed by its deal. A rated board that is started and left unfinished counts as a
 loss, when that player next starts a challenge.
 
+The same boards also update the Solo rating (`solo.py`, docs/solo_rating.md), in shadow mode:
+stored, not shown.
+
 The data lives in SQLite at `$BRIDGE_DATA/players.db` (default `data/` beside the
 code; deploy.sh leaves that folder alone on the server).
 """
@@ -28,6 +31,8 @@ import time
 from pathlib import Path
 
 from flask import g, jsonify, request
+
+from emergent import solo
 
 BOT_RATING = 1500
 START_RATING = 1500
@@ -57,6 +62,7 @@ def db():
                 imps INTEGER, before INTEGER, after INTEGER, at REAL NOT NULL,
                 PRIMARY KEY(player, deal));
         """)
+        solo.schema(conn)
         _LOCAL.conn = conn
     return conn
 
@@ -99,15 +105,17 @@ def expected(rating):
     return 1 / (1 + 10 ** ((BOT_RATING - rating) / 400))
 
 
-def _apply(conn, pid, deal, imps):
-    """Rate one board inside a transaction. Returns (before, after)."""
+def _apply(conn, pid, deal, imps, forfeit=False):
+    """Rate one board inside a transaction, Elo and the shadow Solo rating. Returns (before, after)."""
     r = conn.execute("SELECT rating FROM players WHERE id=?", (pid,)).fetchone()["rating"]
     score = 1 if imps > 0 else 0 if imps < 0 else .5
     after = round(r + K * (score - expected(r)))
+    at = time.time()
     conn.execute("UPDATE players SET rating=?, boards=boards+1, best=MAX(best, ?) WHERE id=?",
                  (after, after, pid))
     conn.execute("UPDATE boards SET state='done', imps=?, before=?, after=?, at=? "
-                 "WHERE player=? AND deal=?", (imps, r, after, time.time(), pid, deal))
+                 "WHERE player=? AND deal=?", (imps, r, after, at, pid, deal))
+    solo.rate(conn, pid, deal, imps, forfeit, at)
     return r, after
 
 
@@ -143,7 +151,7 @@ def forfeit_open(pid):
     try:
         for row in conn.execute("SELECT deal FROM boards WHERE player=? AND state='open' ORDER BY at",
                                 (pid,)).fetchall():
-            _apply(conn, pid, row["deal"], -1)
+            _apply(conn, pid, row["deal"], -1, forfeit=True)
             conn.execute("UPDATE boards SET state='forfeit' WHERE player=? AND deal=?", (pid, row["deal"]))
         conn.execute("COMMIT")
     except Exception:

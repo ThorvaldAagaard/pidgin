@@ -24,6 +24,7 @@ the live position for "what each card is worth". 52 solves cost ~50 ms, so the
 per-card comparison is free. When the solver is missing, every DD field is None
 and the page says so rather than guessing.
 """
+import functools
 import json
 import os
 import threading
@@ -58,7 +59,7 @@ BENCH = {"contracts": None, "tried": False}
 
 # endplay is optional: without it the page still plays, it just has no DD answer.
 try:
-    from endplay.dds import calc_all_tables, solve_board
+    from training.bridge.dds import calc_all_tables, solve_board
     from endplay.types import Card, Deal, Denom, Player, Rank
     DENOMS = (Denom.spades, Denom.hearts, Denom.diamonds, Denom.clubs, Denom.nt)
     PLAYERS = (Player.north, Player.east, Player.south, Player.west)
@@ -212,10 +213,15 @@ def load_models(models_dir=MODELS_DIR):
         file = os.path.join(models_dir, m["file"])
         if not os.path.exists(file):
             continue
-        bot = PlayBot(file)
-        bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
-        bot.note = m.get("note", "")
-        MODELS[bot.id] = bot
+        MODELS.register(m, functools.partial(load_bot, m, file))
+
+
+def load_bot(m, file):
+    """The bot for play_models.json entry `m`, on the model's first use."""
+    bot = PlayBot(file)
+    bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
+    bot.note = m.get("note", "")
+    return bot
 
 
 def models_list():
@@ -266,8 +272,9 @@ def dd_table(owners):
 
 
 def new_game(owners=None, contract=None, calls=None, dealer=0, vul=(False, False),
-             model=None, bench_index=None, bench_dd=None):
-    """A board ready to play. `calls` wins over `contract` when both are given."""
+             model=None, bench_index=None, bench_dd=None, tricks=None):
+    """A board ready to play. `calls` wins over `contract` when both are given.
+    `tricks`, the deal's double dummy table when the caller has it, saves the solve."""
     if owners is None:
         owners = deal_owners(np.random.default_rng())
     owners = np.asarray(owners, dtype=np.int64)
@@ -292,7 +299,7 @@ def new_game(owners=None, contract=None, calls=None, dealer=0, vul=(False, False
         # This desk shows the net itself, so its cards are the net's own; /table
         # sets its own search setting on the games it builds from here.
         "search": False,
-        "tricks": dd_table(owners), "bench_index": bench_index, "bench_dd": bench_dd,
+        "tricks": dd_table(owners) if tricks is None else tricks, "bench_index": bench_index, "bench_dd": bench_dd,
         "model": model if model in MODELS else engine.default_play_model(),
     }
 

@@ -1,0 +1,285 @@
+<title>Pidgin V3.1 (VieNNa) Convention Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a printed two-column ACBL card on a paper sheet; red = alert, blue = announce, as on the real card */
+:root {
+  --bg: #e9ebe6;
+  --paper: #fdfdfb;
+  --ink: #1d2230;
+  --muted: #5d6474;
+  --rule: #c9cdd4;
+  --head: #1d2230;
+  --head-ink: #fdfdfb;
+  --alert: #c4161c;
+  --alert-bg: #fbe9e9;
+  --announce: #1f57b5;
+  --announce-bg: #e8effb;
+  --hl: #fff1b8;
+  --f-head: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151b; --paper: #1b1f27; --ink: #e5e7ec; --muted: #9aa1b0; --rule: #343a46;
+    --head: #2b3140; --head-ink: #f2f3f6; --alert: #ff6b6b; --alert-bg: #3a1e22;
+    --announce: #7aa7ff; --announce-bg: #1c2a44; --hl: #4a4220; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151b; --paper: #1b1f27; --ink: #e5e7ec; --muted: #9aa1b0; --rule: #343a46;
+  --head: #2b3140; --head-ink: #f2f3f6; --alert: #ff6b6b; --alert-bg: #3a1e22;
+  --announce: #7aa7ff; --announce-bg: #1c2a44; --hl: #4a4220; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 13.5px; line-height: 1.45; padding-inline: 16px; padding-block: 24px 40px; }
+.sheet { max-width: 1120px; margin: 0 auto; background: var(--paper); border: 1px solid var(--rule); padding: 20px 22px 26px; }
+header.top { display: grid; grid-template-columns: 1fr auto; gap: 8px 24px; align-items: end; border-bottom: 3px double var(--ink); padding-bottom: 12px; }
+h1 { font-family: var(--f-head); font-size: 28px; font-weight: 700; letter-spacing: .02em; margin: 0; text-transform: uppercase; text-wrap: balance; }
+.names { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-top: 6px; color: var(--muted); }
+.names b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.pill { font-family: var(--f-head); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 11px; padding: 2px 8px; border: 1px solid currentColor; }
+.pill.alert { color: var(--alert); background: var(--alert-bg); }
+.pill.announce { color: var(--announce); background: var(--announce-bg); }
+.pill.dim { color: var(--muted); }
+.general { margin: 14px 0 4px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
+.general dt { font-family: var(--f-head); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; color: var(--muted); padding-top: 1px; }
+.general dd { margin: 0; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; margin-top: 14px; }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+section { border: 1px solid var(--ink); min-width: 0; }
+section > h2 { margin: 0; background: var(--head); color: var(--head-ink); font-family: var(--f-head); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; }
+.body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.lab { font-family: var(--f-head); font-weight: 600; min-width: 7.5em; }
+.fill { border-bottom: 1px solid var(--rule); flex: 1 1 12em; min-width: 0; padding: 0 2px; }
+.num { font-family: var(--f-num); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.box { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.box::before { content: ""; width: 11px; height: 11px; border: 1.5px solid var(--ink); display: inline-block; flex: none; }
+.box.on::before { background: var(--ink); box-shadow: inset 0 0 0 2px var(--paper); }
+.box.off { color: var(--muted); }
+.a { color: var(--alert); font-weight: 600; }
+.n { color: var(--announce); font-weight: 600; }
+.note { color: var(--muted); font-size: 12px; }
+.sub { font-family: var(--f-head); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; color: var(--muted); margin-top: 4px; border-top: 1px dotted var(--rule); padding-top: 5px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-head); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; color: var(--muted); }
+td.h { font-family: var(--f-num); white-space: nowrap; }
+.lead { display: inline-block; font-family: var(--f-num); font-weight: 600; border: 1.5px solid var(--ink); border-radius: 50%; min-width: 1.7em; text-align: center; padding: 0 3px; }
+.mixed { font-family: var(--f-num); color: var(--muted); }
+.pct { font-family: var(--f-num); color: var(--muted); font-size: 11.5px; }
+.suit-r { color: var(--alert); }
+footer { margin-top: 18px; border-top: 3px double var(--ink); padding-top: 10px; color: var(--muted); font-size: 12px; display: grid; gap: 4px; }
+footer code { font-family: var(--f-num); font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 820px) {
+  .cols { grid-template-columns: 1fr; gap: 14px; }
+  header.top { grid-template-columns: 1fr; }
+  .general { grid-template-columns: 1fr; }
+  .general dt { margin-top: 6px; }
+}
+</style>
+
+<div class="sheet">
+  <header class="top">
+    <div>
+      <h1>Convention Card</h1>
+      <div class="names"><span>System: <b>VieNNa</b></span><span>Names: <b>Pidgin &amp; Pidgin</b></span><span>Bidding: <b>V3.1</b></span><span>Card play: <b>V2</b></span></div>
+    </div>
+    <div class="legend"><span class="pill alert">Red = alert</span><span class="pill announce">Blue = announce</span><span class="pill dim">Filled box = plays it</span></div>
+  </header>
+
+  <dl class="general">
+    <dt>General approach</dt>
+    <dd>Natural. Four-card suits, light openings, weak twos in all four suits, one wide strong 1NT for big hands of any shape. No artificial bids. <span class="a">The 1NT response to a suit opening is the strong bid; new suits at the two level are weak.</span> A new suit shows 4+ cards (99.75% of 2.46 million first bids of a suit); a raise can be 3 cards.</dd>
+    <dt>Bidding search</dt>
+    <dd><span class="box on">None</span> <span class="note">The served team PidginV3.1 bids with the network alone (<code>bid_search: false</code> in teams.json), so this card is what it plays at the table. Only the /debug page's search toggle can add a search.</span></dd>
+    <dt>Min. expected HCP</dt>
+    <dd>Opening point (half of hands open): <span class="num">8</span> first seat non-vul, <span class="num">10</span> vul; seat 2: 9 / 10; seat 3: 8–9 / 11; seat 4: 11 / 12. One-bids from 8–9 HCP in seat 1 (8 HCP opens a one-bid 46% of the time, 9 HCP 84%). One-bids in seat 3 are 9–19, in seat 4 12–20.</dd>
+    <dt>Forcing opening</dt>
+    <dd><span class="box off">1♣</span> <span class="box off">2♣</span> <span class="box on">None</span> <span class="note">Big hands open 1NT: 20–22 HCP 93–95% in seat 1, 56–71% in seat 3 (the rest open a one-bid). 23+ HCP: 1NT 100%.</span></dd>
+  </dl>
+
+  <div class="cols">
+    <div class="col">
+
+      <section>
+        <h2>Notrump opening bids</h2>
+        <div class="body">
+          <div class="row"><span class="lab">1NT</span><span class="fill"><span class="num a">16 to 23</span> <span class="note">(median 19–20; from 19 HCP it is the main call: 52% at 19, 87% at 20, 100% at 21+; seat 3 and 4: 17 to 24)</span></span></div>
+          <div class="row"><span class="box on a">Any shape</span><span class="note">only 38% balanced; singleton or void 45%; 4432 / 5332 / 5431 most common</span></div>
+          <div class="row"><span class="box on">5-card major common</span> <span class="note">(5+ major 50–54%)</span><span class="box on a">Singleton possible</span></div>
+          <div class="sub">Responses</div>
+          <div class="row a">Every response forces opener to bid again. Responder passes 1NT only with 0–3 HCP (0.4%).</div>
+          <div class="row"><span class="lab">2♣</span><span class="fill a">Natural, forcing: 4+ clubs, 2–11 HCP. Not Stayman.</span></div>
+          <div class="row"><span class="lab">2<span class="suit-r">♦</span></span><span class="fill a">Natural, forcing: 4+ diamonds, 2–10 HCP. Not a transfer.</span></div>
+          <div class="row"><span class="lab">2<span class="suit-r">♥</span> / 2♠</span><span class="fill a">Natural, forcing: 4+ cards (5+ 67% / 72%), 2–9. Not a transfer.</span></div>
+          <div class="row"><span class="lab">2NT</span><span class="fill a">Game forcing, 9–13</span></div>
+          <div class="row"><span class="lab">3<span class="suit-r">♥</span> / 3♠</span><span class="fill a">Forcing: 5+ suit, 7–12</span></div>
+          <div class="row"><span class="lab">3NT</span><span class="fill a">Not to play: 11–16. Opener bids on 99.7%.</span></div>
+          <div class="row"><span class="lab">4♣</span><span class="fill a">Natural: 5+ clubs (86%), 11–15. Not Gerber.</span></div>
+          <div class="row"><span class="lab">4<span class="suit-r">♥</span> / 4♠</span><span class="fill a">Not to play: 5+ suit, 10–15. Opener passes 0–1%.</span></div>
+          <div class="row"><span class="lab">4NT</span><span class="fill">14–17</span></div>
+          <div class="row"><span class="box off">Stayman</span><span class="box off">Jacoby transfers</span><span class="box off">Smolen</span><span class="box off">Lebensohl</span></div>
+          <div class="row note a">Auctions after 1NT often reach slam: 29% of 1NT openings end in slam.</div>
+          <div class="row note">Opener passed 2 of 36,281 responses from 2♣ to 3NT (both after 3NT). After 2♣ or 2♦, opener shows a 4+ major (2♥/2♠) 51–61% of the time, bids 2NT with 19–24, or makes another natural rebid.</div>
+          <div class="row"><span class="lab">2NT opening</span><span class="fill">Never opened</span></div>
+          <div class="row"><span class="lab">3NT opening</span><span class="fill">Never opened</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Major openings</h2>
+        <div class="body">
+          <div class="row"><span class="lab">Min. length</span><span class="fill"><span class="num">1<span class="suit-r">♥</span> 4</span> <span class="note">(5+ 76–80%)</span> · <span class="num">1♠ 4</span> <span class="note">(5+ 91–93%)</span> · seat 1, 8–17 HCP</span></div>
+          <div class="sub">Responses</div>
+          <div class="row"><span class="lab">1NT</span><span class="fill"><span class="a">Strong, forcing: 10–19 HCP</span> <span class="note">(opener passes 0.3–0.4%)</span></span></div>
+          <div class="row"><span class="lab">1♠ over 1<span class="suit-r">♥</span></span><span class="fill">4+ spades, 4–12. <span class="a">Not forcing</span> <span class="note">(opener passes 26%)</span></span></div>
+          <div class="row"><span class="lab">2-level new suit</span><span class="fill a">Weak, non-forcing: 4–12 HCP, 5+ suit (98%+; 6+ 45–64%). Opener passes 37–50%.</span></div>
+          <div class="row"><span class="lab">Single raise</span><span class="fill">6–12, 3+ support (3 cards 52–62%)</span></div>
+          <div class="row"><span class="lab">Double raise</span><span class="fill">8–14, 4+ support (93–95%), nearly forcing <span class="note">(opener passes 8–9%)</span></span></div>
+          <div class="row"><span class="lab">Game raise</span><span class="fill">11–17, 4+ support <span class="note">(opener passes 75–76%)</span></span></div>
+          <div class="row"><span class="lab">Jump shift</span><span class="fill">1<span class="suit-r">♥</span>–3♠: 9–14, 6+ spades · 1♠–3<span class="suit-r">♥</span>: 9–15, 6+ hearts</span></div>
+          <div class="row"><span class="box off">2/1 game force</span><span class="box off">Jacoby 2NT</span><span class="box off">Splinters</span><span class="box off">Drury</span><span class="box off">1NT forcing (std.)</span></div>
+          <div class="row note">2NT, 3♣, 3<span class="suit-r">♦</span>, 4♣, 4<span class="suit-r">♦</span> responses: never made (0 of 194,196). A passed hand's 2♣ is natural, 4–9, 5+ clubs, no support.</div>
+          <div class="sub">Opener's rebid after 1<span class="suit-r">♥</span>–1NT</div>
+          <div class="row note">2<span class="suit-r">♥</span> 8–13 with 5+ hearts · 2NT 13–17, forcing (responder passes 0 of 3,426) · new suit 4+ cards (2♦ 78%, 2♣ 90%) · 3NT 15–19, <span class="a">responder passes 38–51%</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Minor openings</h2>
+        <div class="body">
+          <div class="row"><span class="lab">Min. length</span><span class="fill"><span class="num">1♣ 4</span> <span class="note">(5+ 48–51%)</span> · <span class="num">1<span class="suit-r">♦</span> 4</span> <span class="note">(5+ 62–65%)</span> · never short</span></div>
+          <div class="sub">Responses</div>
+          <div class="row"><span class="lab">1-level suit</span><span class="fill">4+ cards, 4–13. <span class="a">Not forcing</span> <span class="note">(opener passes 12–29%)</span></span></div>
+          <div class="row"><span class="lab">1NT</span><span class="fill a">Strong, forcing: 11–19 HCP</span> <span class="note">(opener passes 0.4–0.6%)</span></div>
+          <div class="row"><span class="lab">Single raise</span><span class="fill">5–12, 4+ support (1♣–2♣ 99%, 1<span class="suit-r">♦</span>–2<span class="suit-r">♦</span> 82%). Opener passes 54%.</span></div>
+          <div class="row"><span class="lab">Jump shift</span><span class="fill"><span class="box on">Weak</span> 2–9, 6-card suit (1♣–2<span class="suit-r">♦</span>, 1♣/1<span class="suit-r">♦</span>–2<span class="suit-r">♥</span>). 3-level jumps (3<span class="suit-r">♥</span>/3♠): 8–14, 6+ cards.</span></div>
+          <div class="row"><span class="box off">Inverted minors</span><span class="box off">Criss-cross</span></div>
+          <div class="sub">Opener's rebid after a 1-level response (any suit opening)</div>
+          <div class="row note">Pass with 9–14 · <span class="a">1NT rebid 13–19, not 12–14</span> · <span class="a">raises partner's suit often with 3 cards</span> (1<span class="suit-r">♥</span>–1♠–2♠: 4+ spades only 46%; 1♣–1<span class="suit-r">♥</span>–2<span class="suit-r">♥</span>: 4+ hearts only 36%)</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>2-level openings</h2>
+        <div class="body">
+          <div class="tablewrap"><table>
+            <tr><th>Opening</th><th>HCP (5–95%)</th><th>Shape</th><th>Meaning</th></tr>
+            <tr><td class="h a">2♣</td><td class="num">3–10</td><td>6+ clubs (91%)</td><td class="a">Weak two. Not strong, not artificial.</td></tr>
+            <tr><td class="h">2<span class="suit-r">♦</span></td><td class="num">2–8</td><td>6+ diamonds (100%)</td><td>Weak two</td></tr>
+            <tr><td class="h">2<span class="suit-r">♥</span></td><td class="num">2–9</td><td>6+ hearts (100%)</td><td>Weak two</td></tr>
+            <tr><td class="h">2♠</td><td class="num">2–7</td><td>6+ spades (100%)</td><td>Weak two</td></tr>
+          </table></div>
+          <div class="row note">Seat 1, non-vul. Below 8 HCP it opens only weak twos (one-bids under 0.5%): 0–7 HCP opens a weak two 13–22% of the time per HCP. Vulnerable: 2♣ 3–11, 2<span class="suit-r">♦</span> 4–10, 2<span class="suit-r">♥</span> 5–10, 2♠ 3–8 with 7+ spades 82%. A 7-card suit with 10 HCP or less opens a weak two 51–100% of the time.</div>
+          <div class="sub">Responses to 2<span class="suit-r">♥</span></div>
+          <div class="row note">Pass 53% (5–15 HCP) · 2NT 13–20, short hearts · <span class="a">3<span class="suit-r">♥</span> 7–16, only 31% have 4+ hearts</span> · 4<span class="suit-r">♥</span> 13–21</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Other openings</h2>
+        <div class="body">
+          <div class="row"><span class="lab">3<span class="suit-r">♥</span> / 3♠</span><span class="fill a">Sound, not preemptive: 3<span class="suit-r">♥</span> 8–15, 3♠ 10–16 HCP; 7+ cards (98% / 87%)</span></div>
+          <div class="row"><span class="lab">4<span class="suit-r">♥</span> / 4♠</span><span class="fill a">Strong: 12–19 HCP, 6+ suit (7+ 79–100%). 4♠ is rare.</span></div>
+          <div class="row"><span class="lab">3♣ / 3<span class="suit-r">♦</span></span><span class="fill">Never opened</span></div>
+          <div class="row note">No preempts. Long weak hands open at the two level or pass.</div>
+        </div>
+      </section>
+
+    </div>
+    <div class="col">
+
+      <section>
+        <h2>Overcalls</h2>
+        <div class="body">
+          <div class="row"><span class="lab">1-level</span><span class="fill"><span class="num">5 to 16</span> <span class="note">(median 11)</span>. 1<span class="suit-r">♦</span> can be 4 cards (44%); 1<span class="suit-r">♥</span> 5+ 60–76%; 1♠ 5+ 67–91%</span></div>
+          <div class="row"><span class="lab">2-level</span><span class="fill"><span class="num">4 to 15</span>, 5+ cards, 6+ 65% <span class="note">(53–57% over 1♠, 83% for 1<span class="suit-r">♦</span>–2♣)</span></span></div>
+          <div class="row"><span class="lab">Jump overcall</span><span class="fill"><span class="box on">Weak</span> at the 2 level: 2–11, 6+ suit (99%); 1x–2♠ is 1–8. <span class="a">At the 3 level (1♠–3<span class="suit-r">♥</span>, 1<span class="suit-r">♥</span>–3♠): 9–18, not weak.</span></span></div>
+          <div class="row"><span class="lab">1NT overcall</span><span class="fill"><span class="num">12 to 21</span> <span class="note">(median 16)</span> direct. <span class="a">Balancing: 10 to 21.</span></span></div>
+          <div class="row"><span class="box off">Michaels cue bid</span><span class="box off">Unusual 2NT</span></div>
+          <div class="row note a">A cue bid of their suit (1♣–2♣) is natural: 6+ cards in that suit (93–100%). 2NT overcall of a one-bid: never made.</div>
+          <div class="sub">Responder after 1<span class="suit-r">♥</span> – (1♠)</div>
+          <div class="row note">2<span class="suit-r">♥</span> raise 3–11 · 3<span class="suit-r">♥</span> 7–14 · 4<span class="suit-r">♥</span> 10–17 · 1NT 10–18 · <span class="a">X penalty</span>, 9–17 with 4+ spades (99%).</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Special doubles</h2>
+        <div class="body">
+          <div class="row"><span class="a">Doubles are for penalty. No takeout doubles. At levels 1–3 the doubler holds their suit (4+ cards 91% / 64% / 60%); a takeout shape (2 or fewer in their suit, 3+ in every unbid suit) is 0.3% / 7% / 7%. At the 4 level and up the doubler often does not hold the suit (4+ only 11–34%): the double says "they will go down". Partner leaves it in 38% at the 1 level, 73–82% at the 4 level and up.</span></div>
+          <div class="row note">Examples: 1♠–X shows 4.7 spades on average (4+ 99%), 13–21 HCP; 1<span class="suit-r">♥</span>–P–P–X shows 4+ hearts (100%); 2<span class="suit-r">♥</span>–X 4+ hearts 90%.</div>
+          <div class="row"><span class="box off">Takeout</span><span class="box off">Negative</span><span class="box off">Responsive</span><span class="box off">Support</span><span class="box off">Lightner</span></div>
+          <div class="row note">Some double in 13% of deals; redouble 0.13%. A double of 1NT: 13 in a million deals.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Vs. opening preempts / vs. NT</h2>
+        <div class="body">
+          <div class="row"><span class="lab">Vs. 2<span class="suit-r">♥</span></span><span class="fill">2♠ natural 6–17 (5+ 70%) · 2NT natural 14–21 · <span class="a">X penalty</span> 12–22 with 4+ hearts (90%)</span></div>
+          <div class="row"><span class="lab">Vs. 1NT</span><span class="fill">2♣ / 2<span class="suit-r">♦</span> / 2<span class="suit-r">♥</span> / 2♠ natural, 5+ suit (6+ 58–79%), 2–13</span></div>
+          <div class="row"><span class="box off">DONT</span><span class="box off">Cappelletti</span><span class="box off">Landy</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Slam conventions</h2>
+        <div class="body">
+          <div class="row"><span class="lab">4NT</span><span class="fill a">Not Blackwood: pick a slam. Partner names a real suit at the 5 level (76%; 4+ cards 93–98%) or bids 5NT (11%). Aces held are the same whatever the reply (1–2 aces 74–77% for each 5-level suit). The auction ends in slam 82% of the time.</span></div>
+          <div class="row"><span class="box off">Blackwood</span><span class="box off">RKCB</span><span class="box off">Gerber</span><span class="box off">Control bids</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Defensive carding</h2>
+        <div class="body">
+          <div class="row note">Measured on the bench boards for the earlier card player (the Pidgin Q-net); not yet measured for card play V2.</div>
+          <div class="row"><span class="lab">Attitude</span><span class="fill"><span class="box on">None found</span> <span class="note">highest spot 25% with or without A/K/Q in the suit</span></span></div>
+          <div class="row"><span class="lab">Count</span><span class="fill"><span class="box on">Standard, weak</span> <span class="note">highest spot 29% with even length, 24% odd</span></span></div>
+          <div class="row"><span class="lab">First discard</span><span class="fill"><span class="box on">No clear method</span> <span class="note">highest spot 24% from a suit with A/K/Q, 30% without</span></span></div>
+          <div class="row"><span class="box off">Upside-down</span><span class="box off">Lavinthal</span><span class="box off">Odd-even</span><span class="box off">Smith echo</span></div>
+          <div class="row note">Only the lead and trick 1 are the net's own cards in the served team. From the third trick the defence uses a search (PIMC), which can play other cards.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Opening leads</h2>
+        <div class="body">
+          <div class="row note">Circled card = led most often from that holding. Grey = no fixed card.</div>
+          <div class="tablewrap"><table>
+            <tr><th>Holding</th><th>Vs. suits</th><th>Vs. NT</th></tr>
+            <tr><td class="h">A K x</td><td><span class="lead">A</span> <span class="pct">64–73%</span></td><td><span class="lead">A</span> <span class="pct">60–69%</span></td></tr>
+            <tr><td class="h">A K x x</td><td><span class="lead">A</span> <span class="pct">61–67%</span></td><td><span class="lead">A</span> <span class="pct">70–74%</span></td></tr>
+            <tr><td class="h">K Q x x</td><td><span class="lead">Q</span> <span class="pct">53–55%</span></td><td><span class="lead">Q</span> <span class="pct">54–59%</span></td></tr>
+            <tr><td class="h">K Q J x</td><td><span class="lead">Q</span> <span class="pct">76–82%</span></td><td><span class="lead">Q</span> <span class="pct">75–82%</span></td></tr>
+            <tr><td class="h">Q J x x</td><td><span class="lead">Q</span> <span class="pct">73–80%</span></td><td><span class="lead">Q</span> <span class="pct">56%</span></td></tr>
+            <tr><td class="h">A x x</td><td><span class="lead">A</span> <span class="pct">94%</span></td><td><span class="lead">A</span> <span class="pct">53–68%</span></td></tr>
+            <tr><td class="h">A x x x</td><td><span class="lead">A</span> <span class="pct">96%</span></td><td><span class="mixed">low 75%, A 25%</span></td></tr>
+            <tr><td class="h">K x x</td><td>low <span class="pct">77%</span></td><td>low <span class="pct">92%</span></td></tr>
+            <tr><td class="h">Q x x</td><td><span class="mixed">Q 35–40%, low 61–65%</span></td><td>low <span class="pct">93%</span></td></tr>
+            <tr><td class="h">K x x x</td><td><span class="mixed">any spot</span></td><td><span class="mixed">3rd or 4th, about 45% each</span></td></tr>
+            <tr><td class="h">Q x x x</td><td><span class="mixed">any spot</span></td><td><span class="mixed">3rd or 4th, about 38–44% each</span></td></tr>
+            <tr><td class="h">x x</td><td><span class="mixed">either, about 50/50</span></td><td><span class="mixed">top 46%, low 54%</span></td></tr>
+            <tr><td class="h">x x x</td><td><span class="mixed">middle 38%, low 35%</span></td><td><span class="mixed">low 44%, middle 39%</span></td></tr>
+            <tr><td class="h">x x x x</td><td><span class="mixed">2nd 36%, 4th 26%</span></td><td><span class="mixed">4th 37%, 2nd 33%</span></td></tr>
+          </table></div>
+          <div class="row note">Vs. suits: singleton led 10% of the time, trump 5%. Leads an unsupported ace almost always and almost never underleads one.</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer>
+    <div>Read from the bot's own calls; nothing here was written by hand into the model. Bidding: the network alone, greedy, which is how the served PidginV3.1 team bids (no bidding search).</div>
+    <div>Openings: 100,000 held-out hands per seat and vulnerability (<code>openings_v3_1.txt</code>). Other bids: 1,000,000 self-play auctions, Pidgin V3.1 at all four seats, seed 20261024 (<code>cc_v3_1.txt</code>, <code>passrate_v3_1.txt</code>, <code>doubles_v3_1.txt</code>, <code>measure_v3_1.txt</code>, <code>checks_v3_1.txt</code>). Leads and signals: from the V2 card (same card player).</div>
+    <div>Every line checked against those files on 2026-10-25; ranges are 5th–95th percentile HCP.</div>
+    <div>Source: <code>lab/experiments/convention_card/README.md</code>, section "V3.1"</div>
+  </footer>
+</div>

@@ -25,7 +25,7 @@ docker run --rm -p 8080:8080 pidgin-brill
 curl http://localhost:8080/apis/brill/
 ```
 
-The final request lists the teams available to the Brill API. The Docker image selects `PidginV3.1` by default; pass `model=PidginV1`, `model=PidginV2`, `model=PidginV3.1`, or `model=BRL` on a Brill request to choose a team explicitly.
+The final request lists the teams available to the Brill API. The Docker image selects `PidginV3.2` by default; pass `model=PidginV1`, `model=PidginV2`, `model=PidginV3.1`, `model=PidginV3.2`, or `model=BRL` on a Brill request to choose a team explicitly.
 
 ## How a team answers a request
 
@@ -42,7 +42,7 @@ flowchart TD
     bidsearch -->|Yes: Pidgin V2| belief["Compare calls using belief-sampled deals"]
     bidsearch -->|No: Pidgin V1, V3.1 or BRL| call["Return a legal call"]
     belief --> call
-    phase -->|Card play| play["Card-play model with sampled-deal search"]
+    phase -->|Card play| play["Card-play model: V2 greedy; V1 with sampled-deal search"]
     play --> card["Return a legal card"]
 ```
 
@@ -62,11 +62,17 @@ the bidding-search step. For a copyable request, see the
 | Team | Bidding | Card play |
 |---|---|---|
 | Pidgin V1 (`PidginV1`) | Pidgin V1 bidding model, stored as `D_cw_s75k.pt` | Pidgin V1 card-play model, stored as `play_E48_wideleagueH.pt`, with search |
-| Pidgin V2 (`PidginV2`) | Pidgin V2 bidding model, stored as `pidginv2_bid_s40000.pt`, with bidding search | Pidgin Q-net card-play model, stored as `play_B2g_s540k.pt`, with search |
-| Pidgin V3.1 (`PidginV3.1`) | Pidgin V3.1 bidding model, stored as `pidginv3_1_bid_s20000.pt`, without bidding search | Pidgin Q-net card-play model, stored as `play_B2g_s540k.pt`, with search |
-| BRL (`BRL`) | External BRL bidding baseline | The same Pidgin Q-net card-play model as Pidgin V2 |
+| Pidgin V2 (`PidginV2`) | Pidgin V2 bidding model, stored as `pidginv2_bid_s40000.pt`, with bidding search | Pidgin card play V2, stored as `play_run6_s36-38k.pt`, no search |
+| Pidgin V3.1 (`PidginV3.1`) | Pidgin V3.1 bidding model, stored as `pidginv3_1_bid_s20000.pt`, without bidding search | Pidgin card play V2, stored as `play_run6_s36-38k.pt`, no search |
+| Pidgin V3.2 (`PidginV3.2`) | The same Pidgin V3.1 bidding model, without bidding search | Pidgin card play V3, stored as `play_run18_s4000.pt`, no search |
+| BRL (`BRL`) | External BRL bidding baseline | The same Pidgin card play V2 as Pidgin V2 |
 
-The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [Pidgin V3.1](pidgin_v3_1.md), [card play](card_play.md), and [bidding search](belief.md).
+`PidginV3.2` is the default team: the table at / plays it, and it answers a Brill or BBO request
+without `model`. Rated challenges are still played against `PidginV3.1` only
+(`RATED_TEAM` in `server/emergent/tabledesk.py`). Card play V2 and V3 have no policy, so the table's play hints quote the Pidgin V1 card-play model
+(`hints` in `teams.json`), loaded on the first hint.
+
+The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [Pidgin V3.1](pidgin_v3_1.md), [Pidgin V3.2](pidgin_v3_2.md), [card play](card_play.md), and [bidding search](belief.md).
 
 ## Deploy to your own host
 

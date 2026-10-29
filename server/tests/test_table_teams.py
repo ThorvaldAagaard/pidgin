@@ -15,7 +15,7 @@ from emergent import bidserver, engine, teams  # noqa: E402
 from tests.test_table_challenge import finish_board  # noqa: E402
 
 td = bidserver.tabledesk
-IDS = ["PidginV3.1", "PidginV2", "PidginV1", "BRL"]          # as Settings lists them
+IDS = ["PidginV3.2", "PidginV3.1", "PidginV2", "PidginV1", "BRL"]          # as Settings lists them
 
 
 @pytest.fixture(scope="module")
@@ -28,13 +28,14 @@ def post(client, gid, path, **body):
     return client.post(path, json=body, headers={"X-Game": gid})
 
 
-def test_a_fresh_tab_plays_pidgin_v3_1(client):
+def test_a_fresh_tab_plays_pidgin_v3_2(client):
     d = client.get("/api/table/state", headers={"X-Game": "team-fresh"}).json
-    assert d["team"] == "PidginV3.1" and d["team_name"] == "Pidgin V3.1"
-    assert d["meta"].startswith("Bots: Pidgin V3.1 · ")
+    assert d["team"] == "PidginV3.2" and d["team_name"] == "Pidgin V3.2"     # the id stays in links
+    assert d["meta"] == "Bots: Pidgin V3.2 · Bidding: V3.1 (VieNNa system) · Card play: V3"
     assert [t["id"] for t in d["teams"]] == IDS
-    assert [t["name"] for t in d["teams"]] == ["Pidgin V3.1", "Pidgin V2", "Pidgin V1", "BRL"]
-    assert d["code"]["t"] == "PidginV3.1" and d["code"]["m"] == "" and d["code"]["pm"] == ""
+    assert [t["name"] for t in d["teams"]] == ["Pidgin V3.2", "Pidgin V3.1", "Pidgin V2", "Pidgin V1", "BRL"]
+    assert d["teams"][0]["label"] == "Bidding: V3.1 (VieNNa system) · Card play: V3"
+    assert d["code"]["t"] == "PidginV3.2" and d["code"]["m"] == "" and d["code"]["pm"] == ""
     page = client.get("/").data.decode()
     assert 'id="teams"' in page and 'if(c.t) q.set("t", c.t);' in page
 
@@ -64,10 +65,11 @@ def test_the_team_bids_and_plays(client, monkeypatch, team):
     if d["contract"] is not None:
         assert cards and all(b is t.play for b, _ in cards) and all(s is False for _, s in cards)
     if team != "PidginV1":
-        assert t.play.family == "playq"                              # the Q-net card player
+        assert t.play.family == "dmc"                                # the DMC value net
 
 
-def test_the_search_toggle_reaches_the_q_net(client, monkeypatch):
+def test_the_search_toggle_reaches_the_card_player(client, monkeypatch):
+    """The toggle is handed over; the DMC net plays greedy either way (tests/test_playdmc.py)."""
     gid = "team-search"
     post(client, gid, "/api/table/new_board", team="PidginV3.1", seat=0)
     post(client, gid, "/api/table/hints", search=True)
@@ -116,6 +118,7 @@ def test_debug_has_no_team(client):
 
 def test_only_the_rated_team_is_rated(client):
     assert td.rated({"team": "PidginV3.1"})
+    assert not td.rated({"team": td.default_team()})             # the default team (V3.2) is not
     assert not td.rated({"team": "PidginV2"}) and not td.rated({"team": None})
     h = {"X-Game": "team-chal"}
     post(client, "team-chal", "/api/table/new_board", team="BRL")

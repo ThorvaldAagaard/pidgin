@@ -3,7 +3,7 @@
 One repo to train and serve the bridge bots. Read `README.md` "What is here" for the map.
 
 - `training/`: model code, shared by trainers and `server/` (`server/training` links to it).
-- `server/`: the live site. `belief/`, `qnet/`: trainers for the belief net and the card-play Q-net.
+- `server/`: the live site. `belief/`, `qnet/`, `cardplay/`: trainers for the belief net, the card-play Q-net and card play V2/V3.
 - `docs/`: one file per served model with its training commands.
 - `runs/`, `data/`, `server/models/*.pt` are local only (gitignored).
 

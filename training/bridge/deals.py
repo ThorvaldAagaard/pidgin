@@ -95,7 +95,7 @@ def hand_hcp(hand: np.ndarray) -> int:
 
 def compute_dd_tables(owners: np.ndarray) -> np.ndarray:
     try:
-        from endplay.dds import calc_dd_table
+        from training.bridge.dds import calc_dd_table
         from endplay.types import Deal, Denom, Player
     except ImportError as exc:
         raise RuntimeError("DDS generation requires the optional 'endplay' package") from exc

@@ -110,6 +110,8 @@ header .meta{color:var(--dim); font-size:14px; margin-top:8px; height:21px;
 .hand .hd{display:flex; align-items:center; gap:8px; min-width:0; white-space:nowrap}
 .hand .hd b{font-size:17px; flex:none}
 .hand .hd .who{font-size:13px; color:var(--dim); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.hand .hd .vul{font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#c0392b;
+  border-radius:4px; padding:0 5px; line-height:17px; flex:none}
 .hand .hd .pts{font-size:13px; color:var(--dim); flex:none}
 .hand .go{position:absolute; top:-11px; right:10px; font-size:12.5px; font-weight:700; line-height:20px;
   padding:0 9px; border-radius:20px; background:var(--glow); color:#1d1f23; white-space:nowrap; pointer-events:none}
@@ -444,6 +446,9 @@ details.recap .aq td{height:24px}
 details.recap .aq td.me{background:var(--accent-bg)}
 details.recap .aq .redc{color:var(--red)}
 #debug-err:empty{display:none}
+/* ---- /?mode=bid: bidding practice, no card play, so no card search and no challenge */
+.bidonly #challenge, .bidonly #searchseg{display:none}
+#card-link[hidden]{display:none}
 </style>
 <link rel="stylesheet" href="/table.mobile.css" media="(max-width:640px)">
 </head>
@@ -475,6 +480,10 @@ details.recap .aq .redc{color:var(--red)}
     <span class="sr" id="share-status" role="status" aria-live="polite"></span>
     <button id="challenge" type="button"
             title="Play four boards in South. Four bots play the same boards at another table, and you compare in IMPs.">Challenge</button>
+    <a class="btn" id="mode" href="/?mode=bid"
+       title="Bid the board with the bots, then see the contract scored double dummy: no card play">Bidding only</a>
+    <a class="btn" id="card-link" href="/card" target="_blank" rel="noopener" hidden
+       title="What the bots' calls mean, on one page">Convention card</a>
     <button id="new-board" class="primary">New board</button>
     </div>
     <button id="rank" type="button" title="Your challenge rating. Opens the leaderboard." aria-label="Leaderboard">🏆 …</button>
@@ -557,9 +566,9 @@ details.recap .aq .redc{color:var(--red)}
       <div class="actions" id="teams" style="margin:0 0 16px"></div>
       </div>
       <div id="chair-set">
-      <p class="sub">Your chair <em style="text-transform:none;font-weight:400">North deals, nobody vulnerable</em></p>
-      <p class="hint" style="margin:0 0 10px">North always deals and nobody is vulnerable: the
-        self-play table the hints quote was built that way. Changing your chair deals a fresh board.</p>
+      <p class="sub">Your chair</p>
+      <p class="hint" style="margin:0 0 10px">The dealer and vulnerability change from board to board,
+        as at a duplicate club. Changing your chair deals a fresh board.</p>
       <div class="actions" id="seats" style="margin:0"></div>
       </div>
       <div class="actions" style="margin-top:8px">
@@ -642,13 +651,29 @@ if(DEBUG){ document.title = "Debug a board"; document.querySelector("header h1")
     + "draws 32 deals that fit the auction, bids each out after its top three calls, scores them double dummy, "
     + "and leaves its own call only for a clear gain."; }
 
-const GAME_KEY = DEBUG ? "table-game-debug" : "table-game";   // its own game, apart from the table's
+/* /?mode=bid is bidding practice: the board ends with the auction and the contract is
+   scored double dummy. The server knows it from X-Mode on every request; the tab keeps
+   its own game, and the mode survives the address bar's #position. */
+const BID_ONLY = !DEBUG && new URLSearchParams(location.search).get("mode") === "bid";
+document.documentElement.classList.toggle("bidonly", BID_ONLY);
+if(BID_ONLY){ document.title = "Practise the bidding";
+  document.querySelector("header h1").textContent = "Practise the bidding";
+  const m = document.getElementById("mode");
+  m.href = "/"; m.textContent = "Play the cards too";
+  m.title = "Back to the full table: bid, then play the board out"; }
+const HEADERS = {"X-Game": null, "X-Mode": BID_ONLY ? "bid" : ""};
+// The convention card's link shows once the server has the card to serve.
+fetch("/card", {method: "HEAD"}).then(r => { if(r.ok) document.getElementById("card-link").hidden = false; })
+  .catch(() => {});
+
+const GAME_KEY = DEBUG ? "table-game-debug" : BID_ONLY ? "table-game-bid" : "table-game";   // its own game, apart from the table's
 let GAME_ID = null;
 try { GAME_ID = sessionStorage.getItem(GAME_KEY); } catch(e) {}
 if(!GAME_ID){
   GAME_ID = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
   try { sessionStorage.setItem(GAME_KEY, GAME_ID); } catch(e) {}
 }
+HEADERS["X-Game"] = GAME_ID;
 /* Anything that goes wrong has to end up on the page. A silent failure here looks
    exactly like a dead button, which is how the New board bug hid. The body is read
    as text first: a proxy error page or a 502 is not JSON, and parsing it blind
@@ -658,7 +683,7 @@ async function post(url, body, opts){
   // nothing makes Flask's request.json raise, and the 400 comes back as an HTML
   // error page — which is exactly how "New board" died while the seat buttons,
   // which happen to send {seat}, kept working.
-  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","X-Game":GAME_ID},
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json", ...HEADERS},
                               body: JSON.stringify(body || {}),
                               signal: opts && opts.signal});
   const text = await r.text();
@@ -842,12 +867,16 @@ function frameOf(d, nCalls, nCards, full){
                                     : (f.trick_leader + (nCards % 4)) % 4;
 
   // Hands: put back everything played after this frame, and keep dummy face down
-  // until the opening lead is on the table.
+  // until the opening lead is on the table. A user who is dummy sees every hand from
+  // then on, so before it the others stay down too, and so do they while the
+  // auction is replayed (in bidding practice, until its last call is drawn).
   const later = played.slice(nCards);
   f.seats = d.seats.map(s => {
     const back = later.filter(c => c.seat === s.seat);
+    const real = !d.debug && !d.reveal && s.seat !== d.user_seat;
     const hide = s.hidden ||
-      (!d.debug && ct && s.seat === ct.dummy && s.seat !== d.user_seat && nCards === 0);
+      (real && ct && nCards === 0 && (s.seat === ct.dummy || ct.dummy === d.user_seat)) ||
+      (real && (d.phase === "play" || d.bid_only) && f.phase === "auction");
     const o = Object.assign({}, s, {left: 13 - played.slice(0, nCards).filter(c => c.seat === s.seat).length,
                                     hidden: hide});
     if(hide || !s.suits){ o.suits = null; o.spent = null; o.hcp = hide ? null : s.hcp; return o; }
@@ -952,6 +981,7 @@ function renderTable(d){
                                           : (d.phase==="auction"?"bidding…":"playing…")}</span>` : "";
     el.innerHTML =
       `<div class="hd"><b style="color:${seatColor(s.seat)}">${s.name}</b>` +
+      (vulSeat(d, s.seat) ? `<span class="vul" title="This side is vulnerable">vul</span>` : "") +
       `<span class="who" title="${who}">${who}</span>` +
       `<span class="pts num">${s.hidden ? s.left + " cards" : s.hcp + " HCP"}</span></div>` +
       badge + (s.hidden ? backsHTML(s.left) : suitsHTML(d, s, yours));
@@ -969,7 +999,7 @@ function renderTable(d){
   const ct = d.contract;
   const left = ct ? `<div class="corner tl">Contract<b>${contractHTML(ct)} ${ct.declarer_name[0]}</b></div>`
                   : `<div class="corner tl">Board<b class="num">#${d.board_no}</b></div>`;
-  const tw = d.tricks_won;
+  const tw = d.bid_only ? null : d.tricks_won;       // bidding practice plays no tricks
   const tr = tw && multi(d)
     ? `<div class="corner tr">Tricks: N-S – E-W<b class="num">${tw.ns} – ${tw.ew}</b></div>`
     : tw
@@ -979,7 +1009,7 @@ function renderTable(d){
   t.insertAdjacentHTML("beforeend", left + tr +
     (multi(d) ? `<div class="corner bl">You play<b>${chairsText(d)}</b></div>`
               : `<div class="corner bl">You sit<b>${d.user_seat_name}</b></div>`) +
-    (ct ? `<div class="corner br">${d.phase === "over" ? "Declarer made" : "Declarer needs"}` +
+    (ct ? `<div class="corner br">${d.phase !== "over" ? "Declarer needs" : d.bid_only ? "Double dummy" : "Declarer made"}` +
           `<b class="num">${d.phase === "over" && d.result ? d.result.tricks : ct.needs}</b></div>`
         : `<div class="corner br">Your hand<b class="num">${d.your_hand.hcp} HCP</b></div>`));
 }
@@ -1059,7 +1089,7 @@ function trickHTML(d){
       (x ? `<span>${rankTxt(x.rank)}</span><span>${SYM[x.suit]}</span>` : "") + `</div>`;
   }
   let mid;
-  if(d.phase === "over") mid = "all 13<br>played";
+  if(d.phase === "over") mid = d.bid_only ? "no card<br>play" : "all 13<br>played";
   else if(stale) mid = `trick ${d.trick_no} to ${SEATS[d.last_trick.winner][0]}<br>` +
                        `${SEATS[d.trick_leader][0]} leads`;
   else if(d.trick.length) mid = `trick ${d.trick_no+1}/13<br>${SEATS[d.trick_leader][0]} led`;
@@ -1101,6 +1131,19 @@ function renderPanel(d){
   }
 
   const role = d.role;
+  if(d.phase === "over" && d.bid_only){
+    // Bidding practice: the auction is the board. All four hands are up on the table.
+    T.innerHTML = `The bidding is over`;
+    H.innerHTML = `${contractHTML(ct)} by ${ct.declarer_name}. No card play here: the contract ` +
+      `is scored at its double dummy tricks, below. All four hands are face up.`;
+    B.innerHTML = auctionRecap(d);
+    const rec = B.querySelector("details.recap");
+    if(rec) rec.ontoggle = () => { RECAP_OPEN = rec.open; };
+    A.innerHTML = `<button id="replay" title="Same cards, bid it again">Bid it again</button>`;
+    A.querySelector("#replay").onclick = () => goNow(() => post("/api/table/restart"));
+    panelTools(d);
+    return;
+  }
   if(d.phase === "over"){
     T.innerHTML = `Thirteen tricks played`;
     H.innerHTML = `${contractHTML(ct)} by ${ct.declarer_name} — the result is below.`;
@@ -1157,6 +1200,10 @@ function auctionRecap(d){
 }
 
 // Undo and claim, under the panel, in every phase they apply to.
+function vulSeat(d, seat){
+  return d.vul === "all" || d.vul === (seat % 2 === 0 ? "ns" : "ew");
+}
+
 function panelTools(d){
   const A = $("panel-actions");
   if(d.debug && d.phase !== "over" && !d.challenge){
@@ -1167,6 +1214,21 @@ function panelTools(d){
       `<button id="db-finish" title="The nets bid and play every chair from here to the end">Nets play to the end ▸▸</button>`);
     A.querySelector("#db-step").onclick = () => move(() => post("/api/table/step"));
     A.querySelector("#db-finish").onclick = () => goNow(() => post("/api/table/finish"));
+  }
+  if(!d.debug && !d.challenge && d.phase !== "over"){
+    // Practice: look at all four hands, or let the nets play the rest, the user's chair too.
+    A.insertAdjacentHTML("beforeend", `<button id="reveal" title="Turn all four hands face up on this board">` +
+      `${d.reveal ? "Hide their hands" : "Show all hands"}</button>`);
+    A.querySelector("#reveal").onclick = () => goNow(() => post("/api/table/reveal", {reveal: !d.reveal}));
+    if(d.phase === "play"){
+      A.insertAdjacentHTML("beforeend", `<button id="skip-play" title="The nets play every card ` +
+        `that is left, yours too, and show the result">Skip the play ▸▸</button>`);
+      A.querySelector("#skip-play").onclick = () => goNow(async () => {
+        const r = await post("/api/table/finish", {all: true});
+        JUMP = true;
+        return r;
+      });
+    }
   }
   if(d.phase === "play" && d.your_turn && d.can_claim){
     A.insertAdjacentHTML("beforeend", `<button id="claim" title="Your side takes every trick that is left, ` +
@@ -1662,6 +1724,7 @@ function renderResult(d){
     $("res-review").innerHTML = "";
     return;
   }
+  if(r.bid_only) return renderBidResult(d);
   const made = r.made;
   const line = made
     ? `${contractHTML(ct)} by ${ct.declarer_name} made ${r.tricks}` +
@@ -1711,6 +1774,27 @@ function renderResult(d){
           `defence. That is a clean board.</p>`;
   $("res-review").innerHTML = `<p class="sub" style="margin-top:12px">Your cards, re-solved ` +
     `${TAGS.solver}</p><p class="hint">${rv.note}</p>` + own + side;
+}
+
+/* Bidding practice: no card play, so the contract scores what it makes double dummy, both
+   sides playing perfectly with all four hands face up. Par is the same solve, read for
+   the best contract either side could reach. */
+function renderBidResult(d){
+  const r = d.result, ct = d.contract;
+  $("res-title").innerHTML = `${contractHTML(ct)} by ${ct.declarer_name}: ` +
+    (r.made ? `makes ${r.tricks}` + (r.delta ? ` (${r.delta} over)` : "") : `${-r.delta} down`) +
+    ` double dummy`;
+  $("res-hint").innerHTML = `No card play in bidding practice: the score is for ${r.tricks} trick` +
+    `${r.tricks === 1 ? "" : "s"}, what the contract takes with perfect play all round. ` +
+    (r.we_declared ? `Your side declared.` : `Their side declared, so the sign flips for you.`);
+  let s = `<div class="stat ${r.my_score >= 0 ? "good" : "bad"}"><span>Your side scores</span>` +
+          `<b class="num">${fmtPts(r.my_score)}</b><span>double dummy, ${d.vul_name}</span></div>`;
+  if(r.par_mine !== null)
+    s += `<div class="stat ${r.imps >= 0 ? "good" : "bad"}"><span>Double dummy par for your side</span>` +
+         `<b class="num">${fmtPts(r.par_mine)}</b><span>the best contract both sides could bid. ` +
+         `You are ${fmtPts(r.my_score - r.par_mine)} against it, <b>${fmtPts(r.imps)} IMPs</b>.</span></div>`;
+  $("res-stats").innerHTML = s;
+  $("res-review").innerHTML = "";
 }
 
 /* ------------------------------------------------ rating and leaderboard, kept on the server
@@ -1949,7 +2033,7 @@ function renderSettings(d){
     b.onclick = () => { if(!leaveChallengeOk()) return;
       $("settings").close(); goNow(() => post("/api/table/new_board", {seat: +b.dataset.seat})); });
   $("teams").innerHTML = d.teams.map(t =>
-    `<button data-team="${t.id}" class="${t.id===d.team?"primary":""}" style="flex:0 0 auto;min-width:0">` +
+    `<button data-team="${t.id}" title="${esc(t.label || "")}" class="${t.id===d.team?"primary":""}" style="flex:0 0 auto;min-width:0">` +
     `${t.name}</button>`).join("");
   $("teams").querySelectorAll("button").forEach(b =>
     b.onclick = () => { if(!leaveChallengeOk()) return;
@@ -2166,7 +2250,7 @@ function boot(over){
   if(p.get("c") !== null){
     return goNow(async () => {
       // A reload of the same challenge keeps your place: this tab's game still holds it.
-      const r = await fetch("/api/table/state", {headers:{"X-Game": GAME_ID}});
+      const r = await fetch("/api/table/state", {headers: HEADERS});
       const cur = r.ok ? await r.json() : null;
       const k = cur && cur.challenge && cur.challenge.code;
       if(k && k.c === p.get("c") && k.ca === p.get("ca") && k.cp === p.get("cp")) return cur;
@@ -2195,7 +2279,7 @@ function boot(over){
       }
     });
   }
-  return goNow(() => fetch("/api/table/state", {headers:{"X-Game": GAME_ID}})
+  return goNow(() => fetch("/api/table/state", {headers: HEADERS})
     .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(`state → ${r.status}: ${t.slice(0,120)}`); })));
 }
 // A different link pasted into the same tab opens it; our own replaceState never fires this.

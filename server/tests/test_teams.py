@@ -1,4 +1,4 @@
-"""The Brill API's teams (models/teams.json): PidginV1, BRL, PidginV2, PidginV3.1 by `model=<id>`.
+"""The Brill API's teams (models/teams.json): PidginV1, BRL, PidginV2, PidginV3.1, PidginV3.2 by `model=<id>`.
 
     python3 -m pytest -q tests/test_teams.py
 """
@@ -12,10 +12,10 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from emergent import bidserver, teams  # noqa: E402
+from emergent import bidserver, engine, teams  # noqa: E402
 from tests.test_apis import deal, hand_text, play_board  # noqa: E402
 
-IDS = ["PidginV1", "BRL", "PidginV2", "PidginV3.1"]
+IDS = ["PidginV1", "BRL", "PidginV2", "PidginV3.1", "PidginV3.2"]
 
 
 class WithModel:
@@ -37,10 +37,33 @@ def client():
 def test_teams_load_on_first_use(client):
     q = {"seat": "N", "dealer": "N", "vul": "None", "ctx": "", "hand": hand_text(deal(3)[0])}
     teams.TEAMS.clear()
-    assert client.get("/apis/brill/bid", query_string=q).json["model"] not in IDS   # no default: old path
-    assert not teams.TEAMS
     assert client.get("/apis/brill/bid", query_string={**q, "model": "BRL"}).json["model"] == "BRL"
     assert list(teams.TEAMS) == ["BRL"]
+    assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM   # no model: default
+    assert list(teams.TEAMS) == ["BRL", teams.DEFAULT_TEAM]
+
+
+
+def test_desk_models_load_on_first_use(client):
+    """A fresh worker loads no net; the default team's first answer loads only its own."""
+    bidserver.create_app()
+    teams.TEAMS.clear()
+    assert not engine.BID_MODELS.loaded() and not engine.PLAY_MODELS.loaded()
+    assert "D_cw_s75k" in engine.BID_MODELS                  # listed all the same
+    q = {"seat": "N", "dealer": "N", "vul": "None", "ctx": "", "hand": hand_text(deal(3)[0])}
+    assert client.get("/apis/brill/bid", query_string=q).json["model"] == teams.DEFAULT_TEAM
+    assert list(engine.BID_MODELS.loaded()) == ["pidginv3_1_bid_s20000"]   # shared with the team
+    assert not engine.PLAY_MODELS.loaded()      # the team plays the DMC net, not a desk model
+
+def test_bbo_uses_the_default_team(client):
+    """robot.php names no model: the default team bids and plays, card search and all."""
+    h = deal(3)
+    q = {"pov": "N", "d": "n", "v": "-", "n": hand_text(h[0]), "h": ""}
+    r = client.get("/apis/bbo.php", query_string=q).data.decode()
+    assert f'model="{teams.DEFAULT_TEAM}"' in r and '<r type="bid"' in r
+    q = {**q, "h": "1c-p-p-p", "pov": "E", "e": hand_text(h[1])}   # North declares 1C; East leads
+    r = client.get("/apis/bbo.php", query_string=q).data.decode()
+    assert f'model="{teams.DEFAULT_TEAM}"' in r and '<r type="play"' in r
 
 
 def test_root_lists_the_teams(client):

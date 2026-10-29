@@ -126,7 +126,7 @@ def test_the_nets_see_dealer_and_vul(client, monkeypatch):
 
 def test_table_links_carry_dealer_and_vul(client):
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-6"}).json
-    assert d["dealer"] == 0 and d["vul"] == "none" and not d["debug"]    # / is unchanged
+    assert d["dealer"] == 1 and d["vul"] == "ns" and not d["debug"]      # / board 2: East, N-S
     assert any(s["hidden"] for s in d["seats"])
     body = {"deal": d["code"]["d"], "seat": "S", "dealer": "2", "vul": "all"}
     d = client.post("/api/table/load", json=body, headers={"X-Game": "dbg-6"}).json
@@ -134,7 +134,7 @@ def test_table_links_carry_dealer_and_vul(client):
     r = client.post("/api/table/load", json=dict(body, dealer="7"), headers={"X-Game": "dbg-6"})
     assert r.status_code == 400
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-6"}).json
-    assert d["dealer"] == 0 and d["vul"] == "none"                        # a new board on / goes back
+    assert d["board_no"] == 4 and d["dealer"] == 3 and d["vul"] == "all"   # then the board cycle again
 
 
 def test_hints_on_the_debug_table(client):
@@ -341,7 +341,7 @@ def test_the_nets_play_with_the_picked_card_model(client, monkeypatch):
 
 @pytest.mark.parametrize("bm", NEW_BID_MODELS)
 def test_a_model_without_a_corpus_still_hints(client, bm):
-    assert bm not in bidserver.CORPUS                 # no "what this call meant" table
+    assert bidserver.corpus(bm) is None                # no "what this call meant" table
     h = {"X-Game": "dbg-nocorp"}
     d = load(client, "dbg-nocorp", **HANDS, auction="1S-P", seat="S", hints="1", model=bm).json
     assert d["model"] == bm and d["hint"]["kind"] == "auction"
@@ -358,7 +358,7 @@ def test_a_model_without_a_corpus_still_hints(client, bm):
 def test_the_main_table_is_unaffected(client):
     d = client.post("/api/table/new_board", json={}, headers={"X-Game": "dbg-plain"}).json
     assert not d["debug"] and d["debug_code"] is None
-    assert d["team"] == "PidginV3.1" and d["model"] == "pidginv3_1_bid_s20000"     # / plays a team
-    assert d["code"]["t"] == "PidginV3.1" and d["code"]["m"] == d["code"]["pm"] == ""  # / link: t
+    assert d["team"] == "PidginV3.2" and d["model"] == "pidginv3_1_bid_s20000"     # / plays a team
+    assert d["code"]["t"] == "PidginV3.2" and d["code"]["m"] == d["code"]["pm"] == ""  # / link: t
     page = client.get("/").data.decode()
     assert 'if(c.m) q.set("m", c.m);' in page                          # an old link's nets still go out

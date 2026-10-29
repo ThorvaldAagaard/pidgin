@@ -1,7 +1,5 @@
 """Weak-spot numbers for a tools/match.py ``boards.npz`` (A = the model under test).
 
-The numbers behind runs/scratch_20260925/brl_weak_spots.md, for any match:
-
 - contested split: A's IMPs/board when both, one or no table had both sides bid or double
 - per side (A, B): doubled-and-down tables, penalty doubles by level, punish rate
   (share of the opponents' failing contracts this side doubled), and the value of
@@ -10,7 +8,7 @@ The numbers behind runs/scratch_20260925/brl_weak_spots.md, for any match:
 - board classes: B1 (A declares at both tables, doubled and down at one or more)
   and C (B declares at both tables), as IMPs per board of the match
 
-    python tools/weakspots.py runs/x/matches_dashboard/step1000_vs_brl
+    python tools/weakspots.py results/a_vs_b
 """
 
 from __future__ import annotations

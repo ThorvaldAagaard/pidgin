@@ -32,7 +32,7 @@ from training.play.data import Contracts
 from training.play.model import PlayNet, encode
 
 try:                                              # endplay is the optional `dds` extra
-    from endplay.dds import solve_all_boards, solve_board
+    from training.bridge.dds import legal_moves, solve_all_boards, solve_board
     from endplay.types import Card, Deal, Denom, Player, Rank
 
     DENOMS = (Denom.spades, Denom.hearts, Denom.diamonds, Denom.clubs, Denom.nt)
@@ -374,7 +374,7 @@ def solved_values(deals: list) -> list[dict[int, int]]:
         for deal, solved in zip(part, solve_all_boards(part)):
             table = {from_card(card): tricks for card, tricks in solved}
             MISPAIRED[0] += 1
-            if set(table) != {from_card(card) for card in deal.legal_moves()}:
+            if set(table) != {from_card(card) for card in legal_moves(deal)}:
                 MISPAIRED[1] += 1
                 table = {from_card(card): tricks for card, tricks in solve_board(deal)}
             out.append(table)

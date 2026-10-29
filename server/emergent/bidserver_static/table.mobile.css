@@ -64,6 +64,7 @@ html.menu .tools{transform:none; visibility:visible; transition:transform .25s e
 .tools > button{min-height:48px; border-radius:12px}
 #new-board{grid-column:1/-1; order:1; font-weight:600}
 #challenge{order:2} #share{order:3}
+.tools > a.btn{order:3; min-height:48px; border-radius:12px; justify-content:center}
 .tools .seg{order:4; grid-column:1/-1; display:flex; flex-wrap:wrap; border:0; border-radius:0; overflow:visible}
 .tools .seg::before{content:attr(aria-label); flex:1 0 100%; font-size:13px; font-weight:600; color:var(--dim);
   text-transform:uppercase; letter-spacing:.04em; margin:4px 0 6px}

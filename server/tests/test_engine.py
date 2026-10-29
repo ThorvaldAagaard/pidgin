@@ -140,6 +140,7 @@ def test_search_is_on_by_default_on_table_and_apis(client):
     before = player.solves
     r = client.get("/apis/brill/play", query_string={
         "seat": SEATS[declarer], "dealer": "N", "vul": "None", "ctx": "1S--2S--4S------",
+        "play_model": engine.default_play_model(),
         "hand": hand_text(owners, declarer), "dummy": hand_text(owners, dummy),
         "played": apis.card_name(lead)})
     assert r.status_code == 200, r.json

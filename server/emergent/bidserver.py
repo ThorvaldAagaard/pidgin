@@ -43,7 +43,8 @@ from emergent.deck import (CALL_CHARS, HCP_W, N_CALLS, NAMES, RANKS, SEAT_NAMES,
                            decode_deal, encode_deal, owners_to_bitmaps, owners_to_pbn)
 
 from endplay.types import Deal, Denom, Player
-from endplay.dds import calc_all_tables
+from training.bridge import dds
+from training.bridge.dds import calc_all_tables
 
 L = 35
 DENOMS = [Denom.spades, Denom.hearts, Denom.diamonds, Denom.clubs, Denom.nt]  # table order S H D C NT
@@ -257,12 +258,14 @@ def load_models(models_dir=MODELS_DIR):
         path = os.path.join(models_dir, m["file"])
         if not os.path.exists(path):  # the public download has only the team models
             continue
-        if m.get("family") == "brl":
-            bot = BrlBot(path)
-        else:
-            bot = FourSeatBot(path)
-        bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
-        MODELS[bot.id] = bot
+        MODELS.register(m, functools.partial(load_bot, m, path))
+
+
+def load_bot(m, path):
+    """The bot for models.json entry `m`; the registry calls this on the model's first use."""
+    bot = BrlBot(path) if m.get("family") == "brl" else FourSeatBot(path)
+    bot.id, bot.label, bot.file = m["id"], m["label"], m["file"]
+    return bot
 
 
 def models_list():
@@ -472,23 +475,27 @@ def api_restart(game):
 
 # ------------------------------------------------------- why did it bid that
 
-CORPUS = {}                  # model id -> {prefix: {"n": int, "calls": {name: stats}}}
+CORPUS = {}                  # model id -> {prefix: {"n": int, "calls": {name: stats}}} or None
 EXPLAIN = {"lock": threading.Lock(), "jobs": OrderedDict(), "next": None, "worker": None}
 MAX_EXPLAIN_JOBS = 40
 
 
-def load_corpus(models_dir=MODELS_DIR):
-    """models/corpus_<model id>.json: what each call meant in offline self-play."""
-    for bot_id in MODELS:
-        path = os.path.join(models_dir, f"corpus_{bot_id}.json")
+def corpus(model_id, models_dir=MODELS_DIR):
+    """models/corpus_<model id>.json, what each call meant in offline self-play, read on the
+    model's first lookup; None for a model without one."""
+    if model_id not in CORPUS and model_id in MODELS:
+        path = os.path.join(models_dir, f"corpus_{model_id}.json")
         if os.path.exists(path):
             with open(path) as fh:
-                CORPUS[bot_id] = json.load(fh)
+                CORPUS[model_id] = json.load(fh)
+        else:
+            CORPUS[model_id] = None
+    return CORPUS.get(model_id)
 
 
 def meaning(game):
     """The offline table for this exact position, if self-play ever reached it."""
-    table = CORPUS.get(game["model"])
+    table = corpus(game["model"])
     if table is None:
         return None
     key = "-".join(call_token(c) for c in game["calls"])
@@ -577,10 +584,13 @@ bench.register(app)             # /bench and /apis/bench/*, weak-spot reports fo
 
 
 def create_app(ckpt=None):
-    """gunicorn entry point. `ckpt` is ignored (old unit files pass 'ck.pt'); models/models.json rules."""
+    """gunicorn entry point. `ckpt` is ignored (old unit files pass 'ck.pt'); models/models.json rules.
+
+    The models load on first use (engine.Registry, teams.get). DDS runs one thread with its
+    small table (DDS_MEMORY_MB): the droplet has one core, and every solve takes one lock."""
     torch.set_num_threads(1)
+    dds.set_memory(int(os.environ.get("DDS_MEMORY_MB", "30")))
     load_models()
-    load_corpus()
     playdesk.load_models()
     teams.load_manifest()
     tabledesk.load(sys.modules[__name__])
@@ -595,15 +605,14 @@ def main():
     a = ap.parse_args()
     torch.set_num_threads(1)
     load_models()
-    load_corpus()
     playdesk.load_models()
     teams.load_manifest()
     tabledesk.load(sys.modules[__name__])
     apis.load(sys.modules[__name__])
-    for b in MODELS.values():
-        print(f"  {b.id:10s} step {b.step}  {b.info}")
-    for b in playdesk.MODELS.values():
-        print(f"  {b.id:10s} play    {b.info}")
+    for k, m in MODELS.entries():
+        print(f"  {k:10s} bid     {m['label']}  (loads on first use)")
+    for k, m in playdesk.MODELS.entries():
+        print(f"  {k:10s} play    {m['label']}  (loads on first use)")
     for m in teams.MANIFEST.values():
         print(f"  {m['id']:10s} team    {m.get('label', '')}  (loads on first use)")
     print(f"open http://{a.host}:{a.port}   (the table; /table works too)")

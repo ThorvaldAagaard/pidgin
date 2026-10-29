@@ -44,6 +44,20 @@ torch.save({"net": {k: v.half() for k, v in ck["net"].items() if not k.startswit
 print(f"   {sys.argv[2]}  step {ck['step']}")
 PY
 
+echo "==> card play V2 (emergent/playdmc.py): one copy of the shared net, float32"
+DMC=${DMC:-$SRC/runs/douzero_play/deploy/run6_avg5_36-38k.pt}
+python3 - "$DMC" models/play_run6_s36-38k.pt <<'PY'
+import sys, torch
+from emergent import playdmc
+torch.save(playdmc.slim(torch.load(sys.argv[1], map_location="cpu", weights_only=False)), sys.argv[2])
+print(f"   {sys.argv[2]}  from {sys.argv[1]}")
+PY
+
+# Card play V3 (docs/card_play.md): run18_branch_leads step 4000, already in the server format
+# (lab/experiments/ranking/cardnets/to_server.py cut its 208 oracle input columns).
+cp "$SRC/runs/ranking/ship/play_run18_s4000.pt" models/play_run18_s4000.pt
+echo "   models/play_run18_s4000.pt"
+
 echo "==> /bench analysis (frozen copies of ../tools)"
 cp "$PUBLIC/tools/weakspots.py" "$PUBLIC/tools/simplicity.py" emergent/analysis/
 

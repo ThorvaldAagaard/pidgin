@@ -3,7 +3,8 @@
 Routes live on the bid desk's Flask app (`register(app)` from bidserver). The table
 is the site's only page; the bid desk and play desk keep their APIs, not their pages.
 
-    GET  /  and  /table         the page
+    GET  /  and  /table         the page; /?mode=bid is bidding practice (see below)
+    GET  /card                  the convention card, when bidserver_static/card.html is there
     GET  /api/table/state       everything the page draws
     POST /api/table/new_board   deal again (optionally from a different chair)
     POST /api/table/load        open a shared link: that deal, chair, models, calls, cards
@@ -13,7 +14,8 @@ is the site's only page; the bid desk and play desk keep their APIs, not their p
     POST /api/table/call        the user's call
     POST /api/table/card        the user's card
     POST /api/table/advance     let the nets act until it is the user's turn again
-    POST /api/table/finish      let them run the rest of the deal out
+    POST /api/table/finish      let them run the rest of the deal out (`all`: the user's chair too)
+    POST /api/table/reveal      all four hands face up, or back down (not in a challenge)
     POST /api/table/step        /debug: the nets make the one call or card on turn
     POST /api/table/undo        take back the user's last call or card
     POST /api/table/claim       claim every trick left; the solver checks and plays it out
@@ -28,16 +30,26 @@ is the site's only page; the bid desk and play desk keep their APIs, not their p
 
 Player routes (/api/me, /api/leaderboard) and the challenge rating are in `players`.
 
+Bidding practice (`/?mode=bid`; the page sends `X-Mode: bid` with every request): the
+auction as usual, then no card play at all. The board is over when the auction ends and
+scores the contract at its double dummy tricks. The deals come from the bench file's
+pre-solved rows (`practice_deal`), so a board costs no solve either, and the nets never
+search. Hints, undo, replay and "show all hands" work as on /; challenges do not.
+
 The user holds one chair; their partner and both opponents are nets. The play
 follows a real table: a declaring user plays both their hand and dummy's, and a
 user who is dummy plays nothing while partner, the net, plays both hands.
 On / the nets are one deployed team from `models/teams.json` (Pidgin V3.1 unless
 the settings pick another): its bidding net, its bidding search, its card player.
+Bidding practice always plays the default team, without bidding search.
 /debug and an old link with `m`/`pm` use a bidding net from `models/models.json`
-and a card-play net from `models/play_models.json` instead, with no team. Dealer is North and nobody is vulnerable, exactly as
-on the other two desks, because the offline "what this call means" corpus was
-built under those conditions. A link (`dr`, `v`) or the debug page can set both;
-they reach the nets as real inputs.
+and a card-play net from `models/play_models.json` instead, with no team.
+Dealer and vulnerability follow the board number as at a duplicate club (board 1:
+North, nobody; see `board_dealer_vul`). A challenge stays at North, nobody. A link
+(`dr`, `v`) or the debug page can set both; they reach the nets as real inputs. The
+offline "what this call means" corpus is keyed by the calls from the dealer, so a
+rotating dealer is no matter to it; it was measured with nobody vulnerable, and a
+hint on a vulnerable board says so.
 
 Nothing here reimplements a net. Every call and card the nets make comes from
 `emergent.engine` (the play on a `playdesk`-shaped game dict), so a board played
@@ -87,6 +99,15 @@ STATIC_DIR = os.path.join(HERE, "bidserver_static")
 
 SUIT_WORDS = {"S": "spade", "H": "heart", "D": "diamond", "C": "club"}
 DEALER = 0                                 # North, like both other desks
+# The vulnerability of duplicate boards 1-16; the dealer goes N, E, S, W in turn.
+BOARD_VULS = ("none", "ns", "ew", "all", "ns", "ew", "all", "none",
+              "ew", "all", "none", "ns", "all", "none", "ns", "ew")
+
+
+def board_dealer_vul(board_no):
+    """Dealer and vulnerability of a numbered board, as at a duplicate club."""
+    i = (int(board_no) - 1) % 16
+    return i % 4, playdesk.vul_of(BOARD_VULS[i])
 VUL_NAMES = {(False, False): "nobody vulnerable", (True, False): "North-South vulnerable",
              (False, True): "East-West vulnerable", (True, True): "both sides vulnerable"}
 MAX_GAMES = 300
@@ -119,8 +140,9 @@ def play_models():
     return engine.PLAY_MODELS
 
 
-# The team / plays by default, and the only one a rated challenge is played against:
-# one leaderboard means one opponent. BRILL_DEFAULT_MODEL moves both.
+# The only team a rated challenge is played against: one leaderboard means one opponent.
+# It is fixed here, apart from the default team (teams.DEFAULT_TEAM, BRILL_DEFAULT_MODEL),
+# so a new default team does not move the ratings.
 RATED_TEAM = "PidginV3.1"
 
 
@@ -138,32 +160,68 @@ def default_team():
 
 
 def team_name(team_id):
-    """'PidginV3.1' -> 'Pidgin V3.1', for the page."""
-    return team_id.replace("PidginV", "Pidgin V", 1) if team_id else None
+    """The name the page shows: teams.json "name", else the id spaced ('PidginV3.2' ->
+    'Pidgin V3.2'). Links and the APIs keep the id."""
+    if not team_id:
+        return None
+    return teams.MANIFEST.get(team_id, {}).get("name") or team_id.replace("PidginV", "Pidgin V", 1)
 
 
 def team_of(game):
     return teams.get(game["team"]) if game.get("team") else None
 
 
+# Bidding practice deals: the bench file's rows with their double dummy tables, so a
+# practice board needs no solve. Its last rows are the /bench set (bench.SET_FIRST on);
+# practice keeps clear of them. Loaded on the first practice board: 6 MB kept.
+PRACTICE = {"owners": None, "tricks": None, "tried": False}
+PRACTICE_ROWS = 90_000
+
+
+def practice_deal(rng=None):
+    """(owners, tricks) for a bidding practice board; a random deal and None (solved when
+    the auction ends) without the bench file."""
+    rng = rng or np.random.default_rng()
+    if not PRACTICE["tried"]:
+        PRACTICE["tried"] = True
+        if os.path.exists(playdesk.BENCH_FILE):
+            z = np.load(playdesk.BENCH_FILE)
+            hands = z["hands"]                       # (n, 4, 52) one-hot, 21 MB while it lasts
+            seat = np.arange(4, dtype=np.uint8)[None, :, None]
+            PRACTICE["owners"] = np.concatenate(    # in slices: argmax would build it in int64
+                [(hands[i:i + 10_000] * seat).sum(1, dtype=np.uint8)
+                 for i in range(0, PRACTICE_ROWS, 10_000)]).astype(np.int8)
+            PRACTICE["tricks"] = z["tricks"][:PRACTICE_ROWS].astype(np.int8)
+            del hands
+    if PRACTICE["owners"] is None:
+        return deal_owners(rng), None
+    i = int(rng.integers(len(PRACTICE["owners"])))
+    return PRACTICE["owners"][i].astype(np.int64), PRACTICE["tricks"][i].astype(np.int64)
+
+
 def new_board(user_seat=2, model=None, play_model=None, hints=False, peek=False,
               owners=None, board_no=1, dealer=DEALER, vul=(False, False), debug=False, bots=None,
-              team=None):
+              team=None, bid_only=False):
     """A fresh game dict. North deals and nobody is vulnerable unless a link or the
     debug page says otherwise; the nets read both as real inputs either way.
 
     `bots` (debug only) is the set of chairs the nets play; the user acts for every
     other chair, and `user_seat` then follows the turn (see `follow_turn`). None, as on
-    /, means the nets play every chair but `user_seat`.
+    /, means the nets play every chair but `user_seat`. `bid_only`: bidding practice,
+    no card play (a debug table never is), always against the default team.
 
     `team` (a teams.json id) puts that team's nets in every bot chair; `model` is then
     its bidding net's id (for the corpus) and `play_model` is not used for the cards."""
     bm, pm = bid_models(), play_models()
+    bid_only = bool(bid_only) and not debug
+    if bid_only:
+        team = default_team()
     t = teams.get(team) if team else None
     if t is not None:
         model = t.bid.id
+    tricks = None
     if owners is None:
-        owners = deal_owners(np.random.default_rng())
+        owners, tricks = practice_deal() if bid_only else (deal_owners(np.random.default_rng()), None)
     owners = np.asarray(owners, dtype=np.int64)
     return {
         "owners": owners,
@@ -181,19 +239,21 @@ def new_board(user_seat=2, model=None, play_model=None, hints=False, peek=False,
         "debug": bool(debug),
         "hints": bool(hints),
         "peek": bool(peek),
+        "reveal": False,     # the user turned all four hands face up (never in a challenge)
+        "bid_only": bid_only,   # bidding practice: the board ends with the auction
         "search": engine.CONFIG.search,     # the page's toggle; see engine.choose_card
 
         "board_no": int(board_no),
         "pg": None,          # the playdesk game dict, built when the auction ends
-        "tricks": None,      # (4, 5) double dummy table, computed with `pg`
+        "tricks": tricks,    # (4, 5) double dummy table: computed with `pg`, or the practice row's
     }
 
 
 def reset_board(game):
     """Same cards, auction from the top."""
     game["calls"] = []
-    game["pg"] = None
-    game["tricks"] = None
+    game["reveal"] = False
+    game["pg"] = None                    # `tricks` stays: same cards, same table
     game.pop("_batch", None)
     game.pop("claim", None)
 
@@ -208,7 +268,7 @@ def bid_bot(game):
 
 
 def play_bot(game):
-    """The card player at the table: the team's (a Q-net for most), else the picked net."""
+    """The card player at the table: the team's (the DMC value net for most), else the picked net."""
     t = team_of(game)
     return t.play if t is not None else play_models().get(game["play_model"])
 
@@ -233,14 +293,16 @@ def net_call(game):
 
     On /debug the search toggle covers the auction too: with it on, the call comes from
     the bidding search (emergent/bidsearch.py). A team that bids with search (Pidgin V2)
-    always does, under the server's time budget. Everywhere else the net's own call."""
+    always does, under the server's time budget, except in bidding practice, which never
+    searches. Everywhere else the net's own call."""
     bot = bid_bot(game)
     if bot is None:
         return None
     seat = auction_of(game).turn
     args = (bot, game["bitmaps"][seat], game["calls"], game["dealer"], game["vul"])
     t = team_of(game)
-    if (t is not None and t.bid_search) or (game["debug"] and engine.search_on(game.get("search"))):
+    if ((t is not None and t.bid_search and not game.get("bid_only"))
+            or (game["debug"] and engine.search_on(game.get("search")))):
         return engine.search_call(*args)
     return engine.choose_call(*args)[0]
 
@@ -271,7 +333,7 @@ def begin_play(game):
         return
     game["pg"] = playdesk.new_game(owners=game["owners"], calls=list(game["calls"]),
                                    dealer=game["dealer"], vul=game["vul"],
-                                   model=game["play_model"])
+                                   model=game["play_model"], tricks=game["tricks"])
     game["pg"]["search"] = game.get("search", engine.CONFIG.search)
     game["tricks"] = game["pg"]["tricks"]
 
@@ -297,8 +359,8 @@ def phase(game):
     st = auction_of(game)
     if not st.ended:
         return "auction"
-    if st.passed_out or game["pg"] is None:
-        return "over"
+    if st.passed_out or game["pg"] is None or game.get("bid_only"):
+        return "over"                     # bidding practice: no card play
     return "over" if batch_for(game).done else "play"
 
 
@@ -484,8 +546,17 @@ def claim(game):
 # ------------------------------------------------------------------- the view
 
 def visible_seats(game):
-    """The chairs whose cards go into the payload: what the user knows, and on /debug all four."""
-    return {0, 1, 2, 3} if game["debug"] else known_seats(game)
+    """The chairs whose cards go into the payload: what the user knows, and all four on
+    /debug, after "show all hands", or while the user is dummy and only watches."""
+    if game["debug"] or game.get("reveal") or shows_all(game):
+        return {0, 1, 2, 3}
+    return known_seats(game)
+
+
+def shows_all(game):
+    """A user who is dummy plays nothing: once the opening lead is out they see every hand."""
+    return (phase(game) == "play" and user_role(game) == "dummy"
+            and len(game["pg"]["played"]) > 0)
 
 
 def known_seats(game):
@@ -586,19 +657,24 @@ def result_view(game):
                 "imps": None if par is None else imps(0 - my_par),
                 "made": None, "tricks": None, "needed": None, "dd_tricks": None}
     pg = game["pg"]
-    batch = batch_for(game)
-    if not batch.done:
-        return None
-    made = int(batch.declarer_tricks()[0])
     declarer = pg["declarer"]
+    dd_tricks = None if tricks is None else int(tricks[declarer][pg["trump"]])
+    if game.get("bid_only"):
+        made = dd_tricks                 # bidding practice: the contract makes what it makes double dummy
+        if made is None:
+            return None
+    else:
+        batch = batch_for(game)
+        if not batch.done:
+            return None
+        made = int(batch.declarer_tricks()[0])
     raw = contract_score(pg["level"], TRUMP_TO_BID_STRAIN[pg["trump"]], made, pg["doubled"],
                          game["vul"][declarer % 2])
     ns = raw if declarer % 2 == 0 else -raw
     mine = ns if my_side == 0 else -ns
     par_mine = None if par is None else (par if my_side == 0 else -par)
-    dd_tricks = None if tricks is None else int(tricks[declarer][pg["trump"]])
     return {
-        "passed_out": False, "tricks": made, "needed": pg["level"] + 6,
+        "passed_out": False, "bid_only": bool(game.get("bid_only")), "tricks": made, "needed": pg["level"] + 6,
         "delta": made - (pg["level"] + 6), "made": made >= pg["level"] + 6,
         "score": raw, "ns_score": ns, "my_score": mine,
         "declaring_side": "NS" if declarer % 2 == 0 else "EW",
@@ -653,17 +729,21 @@ def state_dump(game):
         "last_trick": last,
         "trick_no": 0 if batch is None else batch.trick_no,
         "tricks_won": None,
-        "hints": game["hints"], "peek": game["peek"], "search": game.get("search", engine.CONFIG.search),
+        "hints": game["hints"], "peek": game["peek"],
+        "reveal": bool(game.get("reveal")), "search": game.get("search", engine.CONFIG.search),
+        "bid_only": bool(game.get("bid_only")),
         "model": game["model"], "play_model": game["play_model"],
-        "models": [{"id": b.id, "label": b.label} for b in bm.values()],
-        "play_models": [{"id": b.id, "label": b.label} for b in pmd.values()],
+        "models": [{"id": k, "label": m["label"]} for k, m in bm.entries()],
+        "play_models": [{"id": k, "label": m["label"]} for k, m in pmd.entries()],
         "team": game.get("team"), "team_name": team_name(game.get("team")),
-        "teams": [{"id": k, "name": team_name(k)} for k in table_teams()],
+        "teams": [{"id": k, "name": team_name(k), "label": teams.MANIFEST[k].get("label", "")}
+                  for k in table_teams()],
         "rated_team": team_name(RATED_TEAM),
-        "meta": (f"Bots: {team_name(t.id)} · {t.label}" if t is not None else
-                 "bidding: " + (bm[game["model"]].label if game["model"] in bm else "none")
-                 + " · cards: "
-                 + (pmd[game["play_model"]].label if game["play_model"] in pmd else "none")),
+        "meta": ((f"Bots: {team_name(t.id)} · {t.label}" if t is not None else
+                  "bidding: " + (bm[game["model"]].label if game["model"] in bm else "none")
+                  + " · cards: "
+                  + (pmd[game["play_model"]].label if game["play_model"] in pmd else "none"))
+                 + (" · bidding only: no card play, scored double dummy" if game.get("bid_only") else "")),
         "meta_long": (f"Bots: {team_name(t.id)} · {t.label}" if t is not None else
                       (bm[game["model"]].info if game["model"] in bm else "no bidding model")
                       + " · "
@@ -691,7 +771,7 @@ def state_dump(game):
         if ph == "play":
             out["legal_cards"] = batch.legal()[0].tolist()
             out["can_claim"] = can_claim(game)
-    if ph == "over" and pg is not None and game["hints"]:
+    if ph == "over" and pg is not None and game["hints"] and not game.get("bid_only"):
         out["review"] = user_review(game)
     # With hints off the payload carries no suggestion of any kind: the page cannot
     # show what it was never sent.
@@ -704,7 +784,7 @@ def state_dump(game):
 # ----------------------------------------------------------- auction teaching
 
 def corpus_table(game):
-    return DESK.CORPUS.get(game["model"]) if DESK is not None else None
+    return DESK.corpus(game["model"]) if DESK is not None else None
 
 
 def corpus_at(game, calls):
@@ -1524,7 +1604,7 @@ def play_hint(game):
     turn = int(batch.to_play()[0])
     seen = known_seats(game)
     bot = play_bot(game)
-    bot = getattr(bot, "sampler_bot", bot)      # a Q-net has no policy: quote the net it samples with
+    bot = None if bot is None else teams.hint_bot(bot)   # a value net has no policy: quote a policy net
     view = None if bot is None else bot.view(contracts, batch, len(pg["played"]))
     out = {
         "kind": "play",
@@ -2074,7 +2154,7 @@ def challenge_from_link(body, prev):
 def rated(ch):
     """Whether a dealt challenge counts for the rating: only against `RATED_TEAM`, so the
     bots' fixed 1500 always means the same bots. Other teams play the same match, unrated."""
-    return ch.get("team") is not None and ch["team"] == (teams.default_team() or RATED_TEAM)
+    return ch.get("team") is not None and ch["team"] == RATED_TEAM
 
 
 def challenge_board(ch, prev_board_no):
@@ -2187,17 +2267,30 @@ def int_field(body, key):
 def with_game(fn):
     def wrapped():
         gid = request.headers.get("X-Game", "")[:64] or "default"
+        bid_only = request.headers.get("X-Mode", "") == "bid"    # the page's /?mode=bid
         with LOCK:
             if gid not in GAMES:
-                GAMES[gid] = new_board(team=default_team())
+                GAMES[gid] = new_board(team=default_team(), bid_only=bid_only)
                 advance(GAMES[gid])       # the nets bid up to the user's first turn
             GAMES.move_to_end(gid)
             while len(GAMES) > MAX_GAMES:
                 GAMES.popitem(last=False)
-            follow_turn(GAMES[gid])
-            return fn(GAMES[gid])
+            game = GAMES[gid]
+            # The page's mode wins; the same game read in the other mode is still sound
+            # (a bid-only board just has its cards to play, and the other way round).
+            # A debug table and a challenge are always played out.
+            game["bid_only"] = bid_only and not game["debug"] and not game.get("challenge")
+            follow_turn(game)
+            return fn(game)
     wrapped.__name__ = fn.__name__
     return wrapped
+
+
+def swap(game, fresh):
+    """Put a fresh board in this tab's game, in the tab's mode (bidding practice or not)."""
+    fresh["bid_only"] = bool(game.get("bid_only")) and not fresh.get("debug") and not fresh.get("challenge")
+    game.clear()
+    game.update(fresh)
 
 
 def register(app):
@@ -2207,6 +2300,16 @@ def register(app):
     @app.get("/table")
     def table_page():
         return send_from_directory(STATIC_DIR, "table.html")
+
+    @app.get("/card")
+    def card_page():
+        """The convention card the table links to; a 404 until card.html is in the static folder."""
+        return send_from_directory(STATIC_DIR, "card.html")
+
+    @app.get("/articles/<name>.html")
+    def article_page(name):
+        """Write-ups about the bots, from bidserver_static/articles/; a 404 for any other name."""
+        return send_from_directory(os.path.join(STATIC_DIR, "articles"), name + ".html")
 
     @app.get("/debug")
     def debug_page():
@@ -2230,17 +2333,20 @@ def register(app):
     def api_table_new_board(game):
         body = body_of(request)
         seat = int(body.get("seat", game["view_seat"])) % 4
-        # A debug table keeps its dealer, vulnerability and the nets' chairs; / always goes
-        # back to North, nobody, and keeps its team unless the settings pick another.
-        keep = ({"dealer": game["dealer"], "vul": game["vul"], "debug": True, "bots": game["bots"]}
-                if game["debug"] else
-                {"team": body["team"] if body.get("team") in table_teams() else game.get("team")})
+        # A debug table keeps its dealer, vulnerability and the nets' chairs; on / the
+        # dealer and vulnerability follow the board number, as at a duplicate club, and
+        # the team stays unless the settings pick another.
+        if game["debug"]:
+            keep = {"dealer": game["dealer"], "vul": game["vul"], "debug": True, "bots": game["bots"]}
+        else:
+            dealer, vul = board_dealer_vul(game["board_no"] + 1)
+            keep = {"dealer": dealer, "vul": vul,
+                    "team": body["team"] if body.get("team") in table_teams() else game.get("team")}
         fresh = new_board(user_seat=seat, model=body.get("model") or game["model"],
                           play_model=body.get("play_model") or game["play_model"],
                           hints=game["hints"], peek=game["peek"],
-                          board_no=game["board_no"] + 1, **keep)
-        game.clear()
-        game.update(fresh)
+                          board_no=game["board_no"] + 1, bid_only=game["bid_only"], **keep)
+        swap(game, fresh)
         advance(game)
         return jsonify(state_dump(game))
 
@@ -2252,8 +2358,7 @@ def register(app):
             fresh = board_from_link(body_of(request), game)
         except LinkError as e:
             return jsonify(error=str(e)), 400
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         return jsonify(state_dump(game))
 
     @app.post("/api/table/debug")
@@ -2264,15 +2369,16 @@ def register(app):
             fresh = debug_board(body_of(request), game)
         except LinkError as e:
             return jsonify(error=str(e)), 400
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         return jsonify(state_dump(game))
 
     def no_debug(fn):
-        """Challenges are rated; a debug table never starts one."""
+        """Challenges are rated and played out; a debug table or bidding practice never starts one."""
         def wrapped(game):
             if game.get("debug"):
                 return jsonify(error="no challenges on the debug table"), 400
+            if game.get("bid_only"):
+                return jsonify(error="no challenges in bidding practice"), 400
             return fn(game)
         wrapped.__name__ = fn.__name__
         return wrapped
@@ -2292,8 +2398,7 @@ def register(app):
         if ch["player"]:
             players.forfeit_open(ch["player"])   # boards left unfinished before count as lost
         fresh = challenge_board(ch, game["board_no"])
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         advance(game)
         return jsonify(state_dump(game))
 
@@ -2350,8 +2455,7 @@ def register(app):
         if ch["player"]:
             players.forfeit_open(ch["player"])   # boards left unfinished before count as lost
         fresh = challenge_board(ch, game["board_no"])
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         advance(game)
         return jsonify(state_dump(game))
 
@@ -2365,8 +2469,7 @@ def register(app):
         except LinkError as e:
             return jsonify(error=str(e)), 400
         fresh = challenge_board(ch, game["board_no"])
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         advance(game)
         return jsonify(state_dump(game))
 
@@ -2383,8 +2486,7 @@ def register(app):
             return jsonify(error="that was the last board"), 400
         ch["i"] += 1
         fresh = challenge_board(ch, game["board_no"])
-        game.clear()
-        game.update(fresh)
+        swap(game, fresh)
         advance(game)
         return jsonify(state_dump(game))
 
@@ -2483,8 +2585,12 @@ def register(app):
     @with_game
     def api_table_finish(game):
         """Let the nets run the rest of the deal out, for a user who is only watching.
-        On /debug they take every chair from here to the end, the user's too."""
-        if game["debug"]:
+        On /debug, or with `all` (skip the play), they take every chair from here to
+        the end, the user's too. A challenge board is always played by the user."""
+        everyone = bool(body_of(request).get("all"))
+        if everyone and game.get("challenge"):
+            return jsonify(error="a challenge board is played out by you"), 400
+        if game["debug"] or everyone:
             for _ in range(60 + 52):
                 if not net_act(game):
                     break
@@ -2494,6 +2600,15 @@ def register(app):
                 break
             if not advance(game):
                 break
+        return jsonify(state_dump(game))
+
+    @app.post("/api/table/reveal")
+    @with_game
+    def api_table_reveal(game):
+        """Turn all four hands face up (or back down) on this board. Not in a challenge."""
+        if game.get("challenge"):
+            return jsonify(error="a challenge board keeps the other hands hidden"), 400
+        game["reveal"] = bool(body_of(request).get("reveal", True))
         return jsonify(state_dump(game))
 
     @app.post("/api/table/undo")
