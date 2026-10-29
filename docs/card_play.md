@@ -2,8 +2,8 @@
 
 The released teams use three kinds of card-play model. A **policy model** (Pidgin V1
 card play) picks a card directly and learns through self-play. **Pidgin card play V2**
-estimates the value of each legal card and learns it through self-play too, DouZero-style
-deep Monte Carlo, with no solver in training; it plays its best value without search.
+estimates the value of each legal card and learns it through self-play too, by deep Monte Carlo
+(inspired by DouZero), with no solver in training; it plays its best value without search.
 **Pidgin card play V3** is the same kind of network, trained further with the same recipe.
 The earlier **Q-net** estimates each legal card's value from double-dummy solver results.
 Pidgin V1 card play and the Q-net use search on the site: they sample possible hidden deals,
@@ -108,7 +108,7 @@ for each training step:
 
 ## How card play V2 learns
 
-Card play V2 follows DouZero's deep Monte Carlo recipe. Pidgin V3.1 bids the deals (all
+Card play V2 learns by deep Monte Carlo self-play. Pidgin V3.1 bids the deals (all
 four seats, greedy); the net then plays 2,048 boards at a time against itself, with 2% random
 legal cards. On 30% of boards one side is a past snapshot (a champion snapshot on 15% of those
 rounds). After each board, every decision's target is the acting side's result: declarer's
@@ -142,18 +142,38 @@ Card play V3 (`play_run18_s4000.pt`) has the same input, network and serving for
 play V2: one shared network, width 1,024, six blocks, 2,658 inputs, float32 (62 MB).
 `server/emergent/playdmc.py` loads it unchanged.
 
-It was trained with the same DouZero-style recipe as above, in the lab repository
-(`lab/experiments/douzero_play`). Run 14 used this recipe with 208 extra "oracle" input columns
-that are always zero when the net plays. Run 18 (`runs/douzero_play/run18_branch_leads`)
-continued run 14 from its step 3,000 for 1,000 steps and added true-deal branching at leads.
-In each round of 2,048 boards the trainer picks one lead to a trick (the opening lead in 25% of
-rounds, otherwise the lead to a random later trick). There it plays every legal card on the
-true deal and lets the current nets play out the rest. The net then learns a value for every
-legal lead from these results, not only for the card that was played. The released file is
-run 18's checkpoint at step 4,000. The script
-`lab/experiments/ranking/cardnets/to_server.py` cut the 208 oracle columns and wrote the
-serving file. The server and the trainer took the same tricks on all 2,000 check boards
+It was trained with the same trainer, `cardplay/`, in five stages. The stage names are the
+run names in `cardplay/train.sh`.
+
+- **run6, continued.** The card play V2 run, trained on to step 46,000.
+- **run11.** Three separate role nets from random weights, trained with 208 extra "oracle"
+  input columns: the holder of every card. The nets see them at first, then less and less, then
+  never (steps 8,000 to 13,000).
+- **run12.** An open-hand critic: a copy of run11 at step 8,000 that always sees every hand. It
+  learns the value of the play it watches. The players (run11 at step 13,500) learn toward the
+  critic's value of the true deal, not only toward the board's result. 3,000 steps.
+- **run14.** run6 at step 46,000 as the players (the oracle columns added with zero weights, so it
+  plays as before) with the run12 critic. 3,000 steps.
+- **run18.** run14 continued from step 3,000 to 4,000 with true-deal branching at leads. In each
+  round of 2,048 boards the trainer picks one lead to a trick (the opening lead in 25% of rounds,
+  otherwise the lead to a random later trick). There it plays every legal card on the true deal
+  and lets the current nets play out the rest. The net then learns a value for every legal lead
+  from these results, not only for the card that was played.
+
+The players never see hidden hands when they play; only the critic and run11's early actors do.
+`cardplay/to_server.py` cuts the 208 oracle columns from run18's checkpoint at step 4,000 and
+writes the serving file. The server and the trainer took the same tricks on all 2,000 check boards
 (1,000 boards, each chair, against the Q-net).
+
+```mermaid
+flowchart TD
+    v2["run6 (card play V2 run), step 46,000"] --> r14["run14: players"]
+    r11["run11: separate role nets, oracle columns faded out"] -->|step 8,000| r12["run12: open-hand critic"]
+    r11 -->|step 13,500, players| r12
+    r12 -->|critic| r14
+    r14 -->|step 3,000, branching at leads| r18["run18, step 4,000"]
+    r18 -->|oracle columns cut| v3["Pidgin card play V3"]
+```
 
 Results, card play only: Pidgin V3.1 auctions fixed in advance (dataset contract rows 1,000
 to 9,989, 8,990 boards), greedy, no search, IMPs per board with a 95% interval:
@@ -285,6 +305,28 @@ python -m training.play.train data/play/auctions_1M.npz \
 Both examples train a base policy for 25,000 steps, then fine-tune it against
 earlier checkpoints for 20,000 steps. Use validation matches to decide whether
 a longer run helps.
+
+## Train card play V2 and V3
+
+The trainer is `cardplay/`; its [README](../cardplay/README.md) lists every stage's options. It
+needs the DDS dataset (see the [README](../README.md#training-data), or set `BRIDGE_DATA`), the
+Pidgin V3.1 bidder that bids the deals, and the Q-net as the evaluation opponent. From the
+repository root:
+
+```bash
+python -m pip install -e . endplay
+python -m pip install -r server/requirements.txt
+scripts/get_models.sh
+cardplay/train.sh smoke
+DEVICE=cuda cardplay/train.sh v2
+DEVICE=cuda cardplay/train.sh v3
+```
+
+`smoke` runs both stage sequences with tiny nets for a few steps on the CPU. `v2` writes
+`runs/cardplay/play_run6_s36-38k.pt`; `v3` continues from the V2 run and writes
+`runs/cardplay/play_run18_s4000.pt`. `DEVICE` is `cuda`, `mps` or `cpu`. The first run makes
+the 10,000 evaluation deals `data/fresh_deals_10k.npz` with `endplay`; the evaluation also picks
+the league's champion snapshots, so it is part of the recipe.
 
 ## Train the Q-net
 

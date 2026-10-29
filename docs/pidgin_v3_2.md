@@ -22,16 +22,31 @@ python scripts/bid.py AKQ2.JT9.876.543 --auction "1H P" --model PidginV3.2
 ## How it was trained
 
 The bidding model is the released Pidgin V3.1 bidder; see [Pidgin V3.1](pidgin_v3_1.md).
-Card play V3 continues the DouZero-style card-play training of card play V2 with true-deal
-branching at leads; see [Card play V3](card_play.md#card-play-v3).
+Card play V3 continues the self-play card-play training of card play V2 (deep Monte Carlo,
+inspired by DouZero) with an open-hand critic and true-deal branching at leads; see
+[Card play V3](card_play.md#card-play-v3). The trainer is `cardplay/`; to train it, see
+[Train card play V2 and V3](card_play.md#train-card-play-v2-and-v3).
 
 ```mermaid
 flowchart TD
     bid["Pidgin V3.1 bidding model"] --> team["PidginV3.2 team"]
-    run14["DouZero-style card play, run 14, step 3,000"] -->|1,000 steps, branching at leads| run18["Run 18, step 4,000"]
+    run14["Card play run 14 (V2 run + open-hand critic), step 3,000"] -->|1,000 steps, branching at leads| run18["Run 18, step 4,000"]
     run18 -->|oracle input columns cut| v3["Pidgin card play V3"]
     v3 --> team
 ```
+
+### Outside bots
+
+The bidding model learned partly against bidders that we did not train and do not ship:
+BRL ([harukaki/brl](https://github.com/harukaki/brl); its weights ship here as
+`brl_fsp_weights.npz`), EPBot SAYC and 2/1
+([Edward Piwowar's engine](https://sites.google.com/view/bbaenglish)) and BEN GIB, SAYC and
+2/1 game force ([lorserker/ben](https://github.com/lorserker/ben)). See
+[Pidgin V3.1](pidgin_v3_1.md#how-it-was-trained) for the share of games against each. The code
+that plays them in training is not in this repository.
+
+Card play V3 learned only against itself and its own past snapshots. The Q-net served as the
+evaluation opponent; it is not a training opponent.
 
 ## Results
 
