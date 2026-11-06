@@ -433,12 +433,11 @@ def user_role(game):
 
 
 def advance(game, limit=60):
-    """Let the nets act until the user is on turn. Stops when a trick fills up.
+    """Let the nets act until the user is on turn. In the play, stops after one card.
 
-    The page animates whatever comes back one card at a time, so a request may
-    safely carry several. Stopping at the end of a trick keeps that batch small
-    and bounded, which matters when the user is dummy and the nets would
-    otherwise play all thirteen tricks in a single request.
+    A card from card play V4 takes a second or two, so each request carries one and the
+    page asks again (`/api/table/advance`) while the nets are on turn: the user sees every
+    card as soon as it is chosen instead of waiting for the whole trick.
     """
     acted = 0
     for _ in range(limit):
@@ -447,8 +446,8 @@ def advance(game, limit=60):
         if not net_act(game):
             return acted
         acted += 1
-        if phase(game) == "play" and len(game["pg"]["played"]) % 4 == 0 and game["pg"]["played"]:
-            return acted                          # a trick just filled up
+        if phase(game) == "play" and game["pg"]["played"]:
+            return acted
     return acted
 
 
@@ -2561,8 +2560,7 @@ def register(app):
             return jsonify(error=f"{card_name(card) if 0 <= card < 52 else card} "
                                  f"is not a legal card here"), 400
         game.pop("_batch", None)
-        advance(game)
-        return jsonify(state_dump(game))
+        return jsonify(state_dump(game))           # the page asks /advance for the nets' cards
 
     @app.post("/api/table/advance")
     @with_game

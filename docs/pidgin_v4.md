@@ -18,15 +18,21 @@ For each card the seat on turn owes:
 2. Layouts of the hidden cards are drawn card by card from those probabilities, keeping the
    suits a seat has shown out of. Each is weighted by how likely the belief net finds it,
    until the effective sample size reaches 16 (at most 4,096 draws). Then 64 are resampled.
-3. Every distinct layout is solved double dummy (DDS through `endplay`). The card with the
-   best mean tricks wins.
+3. The distinct layouts are solved double dummy (DDS through `endplay`), most-drawn first,
+   until 0.6 s have passed (`PIMC_BUDGET_S`) and at least 16 are solved. The card with the
+   best mean tricks wins. The cap only bites in the first tricks on the 1-vCPU server; the
+   measured results below used all 64.
 4. Cards within 0.05 tricks of the best count as tied (about 80% of decisions). Card play V3
    (`play_run18_s4000.pt`) picks among them when its own card is one of them; otherwise a
    tied card is drawn at random, seeded by the position.
 
 The code is `server/emergent/playpimc.py` (search and belief net) and
 `server/emergent/beliefbatch.py` (the belief net's inputs, the same as in training). Answers
-are deterministic and do not depend on which seat names the position.
+do not depend on which seat names the position. They are deterministic unless the time cap
+cuts the solving short, since then how many layouts are solved depends on the machine.
+
+The table at / returns one net card per request and the page asks again, so each card shows
+as soon as it is chosen.
 
 ### Bidding systems
 

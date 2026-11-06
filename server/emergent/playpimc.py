@@ -3,10 +3,11 @@
 For each card, the belief net (52M-parameter GLU MLP) gives every hidden card's owner probabilities
 from the seat's view: auction, play so far, and both pairs' bidding systems. Layouts are drawn card
 by card from those probabilities (respecting known voids), importance-weighted until the effective
-sample size reaches MIN_ESS, resampled to K, and each distinct layout is solved double dummy. The
+sample size reaches MIN_ESS, resampled to K, and the distinct layouts are solved double dummy,
+most-drawn first, until BUDGET_S runs out (at least MIN_SOLVED of them). The
 card with the best mean DD tricks wins; cards within TIE_EPS tricks of it count as tied, and the
 tie goes to card play V3's choice (run 18, Pidgin V3.2) when V3 picks one of them, else to a seeded
-random tied card. Measured: +0.81 IMPs a board vs Lia, +1.15 vs Brill over V3.1 cards (docs/card_play_v4.md).
+random tied card. Measured: +0.81 IMPs a board vs Lia, +1.15 vs Brill over V3.1 cards (docs/pidgin_v4.md).
 
 `PimcPlayBot.choose_card` has the signature of `engine.choose_card`. The bidding systems come from
 `SYSTEMS` (a context variable the Brill API sets per request); the site's own tables leave the
@@ -15,7 +16,9 @@ default, VieNNa at both sides.
 from __future__ import annotations
 
 import contextvars
+import os
 import threading
+import time
 
 import numpy as np
 import torch
@@ -30,6 +33,9 @@ VIENNA, SAYC, TWO_OVER_ONE, WBRIDGE5 = 0, 1, 2, 3
 SYSTEMS: contextvars.ContextVar[tuple[int, int]] = contextvars.ContextVar("systems", default=(VIENNA, VIENNA))
 
 K, N_RAW, MAX_RAW, MIN_ESS, TIE_EPS = 64, 256, 4096, 16.0, 0.05
+# DD solving stops after this many seconds once MIN_SOLVED layouts are in (most-drawn first):
+# the opening tricks would otherwise take ~2 s a card on the 1-vCPU server.
+BUDGET_S, MIN_SOLVED = float(os.environ.get("PIMC_BUDGET_S", "0.6")), 16
 TRUMP_OF_STRAIN = [3, 2, 1, 0, 4]       # bid strain C D H S N -> card suit (S H D C), 4 = notrump
 SUIT = np.arange(52) // 13
 RANKS = "AKQJT98765432"
@@ -224,12 +230,16 @@ def hand_pbn(cards) -> str:
     return ".".join("".join(RANKS[c % 13] for c in sorted(cards) if c // 13 == su) for su in range(4))
 
 
-def solve_many(jobs):
-    """DD tricks per legal card for each (hands, leader, trick so far, trump); one DDS call per deal."""
+def solve_many(jobs, budget_s=float("inf"), min_solved=0):
+    """DD tricks per legal card for each (hands, leader, trick so far, trump); one DDS call per deal.
+    Stops early, after at least `min_solved` deals, once `budget_s` seconds have passed."""
     from endplay.dds import solve_board
     from endplay.types import Card, Deal, Denom, Player
     out = []
+    t0 = time.perf_counter()
     for rem, leader, trick, trump in jobs:
+        if len(out) >= min_solved and time.perf_counter() - t0 > budget_s:
+            break
         d = Deal("N:" + " ".join(hand_pbn(h) for h in rem))
         d.trump = Denom(trump)
         d.first = Player(leader)
@@ -258,10 +268,13 @@ def pimc_values(bd: Board, hist, leader, ctrl, bel_rel, rng):
     w = np.exp(lwc - lwc.max())
     idx = rng.choice(len(L), K, replace=True, p=w / w.sum())
     u, cnt = np.unique(idx, return_counts=True)
+    first = np.argsort(-cnt, kind="stable")
+    u, cnt = u[first], cnt[first]
     gone = set(hist[:p["start"]])
     jobs = [([[c for c in range(52) if lay[c] == s and c not in gone] for s in range(4)], leader, p["trick"], bd.trump)
             for lay in L[u]]
-    sols = solve_many(jobs)
+    sols = solve_many(jobs, BUDGET_S, MIN_SOLVED)
+    cnt = cnt[:len(sols)]
     cards = sorted(sols[0])
     tab = np.array([[s[c] for c in cards] for s in sols], dtype=np.float64)
     return cards, (cnt[:, None] * tab).sum(0) / cnt.sum()
