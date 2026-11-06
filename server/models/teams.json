@@ -45,5 +45,15 @@
   "play": "play_run18_s4000.pt",
   "play_family": "dmc",
   "hints": "play_E48_wideleagueH.pt"
+ },
+ {
+  "id": "PidginV4",
+  "label": "Bidding: V3.1 (VieNNa system) · Card play: V4 (belief net + PIMC, V3 tiebreak)",
+  "bid": "pidginv3_1_bid_s20000.pt",
+  "bid_search": false,
+  "play": "belief_v4_s34442.pt",
+  "play_family": "pimc",
+  "tie": "play_run18_s4000.pt",
+  "hints": "play_E48_wideleagueH.pt"
  }
 ]

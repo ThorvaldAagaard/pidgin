@@ -25,7 +25,7 @@ docker run --rm -p 8080:8080 pidgin-brill
 curl http://localhost:8080/apis/brill/
 ```
 
-The final request lists the teams available to the Brill API. The Docker image selects `PidginV3.2` by default; pass `model=PidginV1`, `model=PidginV2`, `model=PidginV3.1`, `model=PidginV3.2`, or `model=BRL` on a Brill request to choose a team explicitly.
+The final request lists the teams available to the Brill API. The Docker image selects `PidginV4` by default; pass `model=PidginV1`, `model=PidginV2`, `model=PidginV3.1`, `model=PidginV3.2`, `model=PidginV4`, or `model=BRL` on a Brill request to choose a team explicitly.
 
 ## How a team answers a request
 
@@ -65,14 +65,15 @@ the bidding-search step. For a copyable request, see the
 | Pidgin V2 (`PidginV2`) | Pidgin V2 bidding model, stored as `pidginv2_bid_s40000.pt`, with bidding search | Pidgin card play V2, stored as `play_run6_s36-38k.pt`, no search |
 | Pidgin V3.1 (`PidginV3.1`) | Pidgin V3.1 bidding model, stored as `pidginv3_1_bid_s20000.pt`, without bidding search | Pidgin card play V2, stored as `play_run6_s36-38k.pt`, no search |
 | Pidgin V3.2 (`PidginV3.2`) | The same Pidgin V3.1 bidding model, without bidding search | Pidgin card play V3, stored as `play_run18_s4000.pt`, no search |
+| Pidgin V4 (`PidginV4`) | The same Pidgin V3.1 bidding model, without bidding search | Pidgin card play V4: belief net `belief_v4_s34442.pt` + PIMC, card play V3 breaking ties |
 | BRL (`BRL`) | External BRL bidding baseline | The same Pidgin card play V2 as Pidgin V2 |
 
-`PidginV3.2` is the default team: the table at / plays it, and it answers a Brill or BBO request
+`PidginV4` is the default team: the table at / plays it, and it answers a Brill or BBO request
 without `model`. Rated challenges are still played against `PidginV3.1` only
 (`RATED_TEAM` in `server/emergent/tabledesk.py`). Card play V2 and V3 have no policy, so the table's play hints quote the Pidgin V1 card-play model
 (`hints` in `teams.json`), loaded on the first hint.
 
-The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [Pidgin V3.1](pidgin_v3_1.md), [Pidgin V3.2](pidgin_v3_2.md), [card play](card_play.md), and [bidding search](belief.md).
+The filenames preserve checkpoint names because the manifests and loaders depend on them. For how the models were trained, see [Pidgin V1](pidgin_v1.md), [Pidgin V2](pidgin_v2.md), [Pidgin V3.1](pidgin_v3_1.md), [Pidgin V3.2](pidgin_v3_2.md), [Pidgin V4](pidgin_v4.md), [card play](card_play.md), and [bidding search](belief.md).
 
 ## Deploy to your own host
 
@@ -83,3 +84,20 @@ server/deploy.sh
 ```
 
 The script checks that weights named in the manifests and `belief_r2.pt` are present, and refuses uncommitted changes under `server/` or `training/` by default. A change to `training/` can change the bots' answers even if the weights are identical; compare the calls and cards on a fixed set of deals when changing model code.
+
+## Bidding systems on the Brill API
+
+`GET /apis/brill/` lists the system names the API takes (`playsSystems`, `readsSystems`,
+`cardings`, `defaults`), as the [Seat Robot API](https://brill.aalborgdata.dk/seat-api.html) asks.
+`ourSystem` / `theirSystem` on `/bid`, `/lead` and `/play` set the bidding systems that card play
+V4's belief net assumes (relative to the seat asked). A name not listed is answered 400.
+
+| Name | Read as |
+|---|---|
+| `PIDGIN:VIENNA`, `PIDGIN:OWN` | VieNNa, Pidgin's own system (the only `ourSystem`) |
+| `21GF-GIB`, `21GF` | 2/1 game force (default `theirSystem`) |
+| `SAYC` | SAYC |
+| `WBRIDGE5:OWN` | WBridge5 |
+
+Cardings are accepted but not read: the belief net learned each system's leads and signals with
+its bidding. The bidding model reads no system.
