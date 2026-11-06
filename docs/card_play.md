@@ -12,7 +12,8 @@ and `server/emergent/engine.py`.
 
 | Public name | Released filename | Used by |
 |---|---|---|
-| Pidgin card play V3 | `play_run18_s4000.pt` | Pidgin V3.2 (team `PidginV3.2`, the default team). |
+| Pidgin card play V4 | `belief_v4_s34442.pt` (+ card play V3 for ties) | Pidgin V4 (team `PidginV4`, the default team); see [Pidgin V4](pidgin_v4.md). |
+| Pidgin card play V3 | `play_run18_s4000.pt` | Pidgin V3.2; card play V4's tiebreak. |
 | Pidgin card play V2 | `play_run6_s36-38k.pt` | Pidgin V3.1, Pidgin V2 and BRL. |
 | Pidgin V1 card play | `play_E48_wideleagueH.pt` | Pidgin V1; the table's play hints for card play V2 and V3. |
 | Compact self-play card-play model | `play_E48_leagueE.pt` | Alternative in the site's debug view. |

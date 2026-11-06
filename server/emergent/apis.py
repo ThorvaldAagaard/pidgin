@@ -9,7 +9,7 @@
 
 Both are stateless: each request carries the whole position and is answered from it
 alone. ``model=<team>`` picks a team from models/teams.json (bidding and card play); with no
-``model`` the default team answers (teams.default_team: Pidgin V3.2). ``model=<id>`` /
+``model`` the default team answers (teams.default_team: Pidgin V4). ``model=<id>`` /
 ``play_model=<id>`` naming a checkpoint from models/models.json / models/play_models.json
 still pick those single nets. Only four-seat bidding
 models are served here. Dealer and vulnerability are real inputs to the net (the desks
@@ -33,7 +33,7 @@ from flask import Response, jsonify, request
 
 from training.bridge.auction import AuctionState
 from training.bridge.calls import DOUBLE, PASS, REDOUBLE
-from emergent import engine, playdesk, teams
+from emergent import engine, playdesk, playpimc, teams
 from emergent.deck import RANKS, SUITS, call_token, card_name, trick_best
 
 DESK = None                      # the live bid desk module, set by load()
@@ -43,6 +43,31 @@ STRAINS = "CDHSN"                # bid index = (level - 1) * 5 + strain (cards a
 
 class ApiError(ValueError):
     """A malformed request: answered with HTTP 400 and {"error": ...}, never a guessed call."""
+
+
+# Seat API systems (seat-api.html §3): the names we read, as card play V4's belief-net slots.
+# Our own system is VieNNa (Pidgin V3.1's bidding); PIDGIN:OWN is the name Brill's round robin sends.
+OUR_SYSTEMS = {"PIDGIN:VIENNA": playpimc.VIENNA, "PIDGIN:OWN": playpimc.VIENNA}
+READ_SYSTEMS = {**OUR_SYSTEMS, "21GF-GIB": playpimc.TWO_OVER_ONE, "21GF": playpimc.TWO_OVER_ONE,
+                "SAYC": playpimc.SAYC, "WBRIDGE5:OWN": playpimc.WBRIDGE5}
+# Accepted but not read: the belief net learns each system's leads and signals with its bidding.
+CARDINGS = [*READ_SYSTEMS, "UDCA", "STANDARD"]
+SYSTEM_DEFAULTS = {"ourSystem": "PIDGIN:VIENNA", "theirSystem": "21GF-GIB",
+                   "ourCarding": "PIDGIN:VIENNA", "theirCarding": "21GF-GIB"}
+DEFAULT_SYSTEMS = (playpimc.VIENNA, playpimc.TWO_OVER_ONE)   # opponents unnamed: 2/1, most robots' system
+
+
+def parse_systems(a) -> tuple[int, int]:
+    """(our, their) belief-net system slots from ourSystem / theirSystem (defaults: VieNNa, 2/1).
+    A name we do not list is an error, never a silent fallback (seat-api.html §3)."""
+    for key, known in (("ourSystem", OUR_SYSTEMS), ("theirSystem", READ_SYSTEMS),
+                       ("ourCarding", CARDINGS), ("theirCarding", CARDINGS)):
+        name = a.get(key)
+        if name and name.upper() not in known:
+            raise ApiError(f"unsupported {key} {name!r}; supported: {', '.join(known)}")
+    us = OUR_SYSTEMS[(a.get("ourSystem") or SYSTEM_DEFAULTS["ourSystem"]).upper()]
+    them = READ_SYSTEMS[(a.get("theirSystem") or SYSTEM_DEFAULTS["theirSystem"]).upper()]
+    return us, them
 
 
 def load(desk):
@@ -258,14 +283,15 @@ def fill_owners(known: dict[int, int], need: dict[int, int], voids: dict[int, se
 
 def api_card(bot, *, seat: int, hand: list[int], dummy: list[int] | None, played: list[int],
              calls: list[int], dealer: int, vul: tuple[bool, bool],
-             search: bool | None = None):
+             search: bool | None = None, systems: tuple[int, int] = DEFAULT_SYSTEMS):
     """(card, [(card, prob), ...]) for the card this seat owes (dummy's when declarer asks).
 
     The position is rebuilt from what this seat sees, then `engine.choose_card` picks,
     as for /table: search per engine.CONFIG unless ``search`` says otherwise; the
     probabilities are the plain net's, for context. The search never reads the
     filled-in hidden hands: it samples its own layouts from what this seat can see.
-    Deterministic: the search is seeded by that view (see below) and never cut by the clock."""
+    Deterministic: the search is seeded by that view (see below) and never cut by the clock.
+    ``systems``: (this seat's side, the opponents') bidding systems, for card play V4's belief net."""
     check_auction(calls)
     contract = playdesk.contract_from_calls(calls, dealer)
     if contract is None:
@@ -321,7 +347,11 @@ def api_card(bot, *, seat: int, hand: list[int], dummy: list[int] | None, played
     batch = playdesk.batch_of(game, c)
     if int(batch.to_play()[0]) != turn:
         raise ApiError("internal: play engine disagrees about whose turn it is")
-    return engine.choose_card(bot, c, batch, search, seed=seed)
+    token = playpimc.SYSTEMS.set(systems)
+    try:
+        return engine.choose_card(bot, c, batch, search, seed=seed)
+    finally:
+        playpimc.SYSTEMS.reset(token)
 
 
 # ------------------------------------------------------------------ routes
@@ -417,7 +447,9 @@ def register(app):
         return jsonify(ok=True, api="Brill Seat Robot API (BEN-compatible)",
                        models=list(teams.MANIFEST), default_model=teams.default_team(),
                        bid_models=list(engine.BID_MODELS), play_models=list(engine.PLAY_MODELS),
-                       endpoints=["/apis/brill/bid", "/apis/brill/lead", "/apis/brill/play"])
+                       endpoints=["/apis/brill/bid", "/apis/brill/lead", "/apis/brill/play"],
+                       playsSystems=list(OUR_SYSTEMS), readsSystems=list(READ_SYSTEMS), cardings=CARDINGS,
+                       defaults=SYSTEM_DEFAULTS)
 
     def brill_team(a):
         """The team `model` (or `model_id`) names, or the default team; None: the single models
@@ -447,6 +479,7 @@ def register(app):
     def api_brill_bid():
         try:
             seat, dealer, hand, vul, calls = brill_common(request.args)
+            parse_systems(request.args)                  # validated; the bidding nets read no system
             if (dealer + len(calls)) % 4 != seat:
                 raise ApiError(f"seat {SEATS[seat]} disagrees with dealer + ctx "
                                f"({SEATS[(dealer + len(calls)) % 4]} is to call)")
@@ -488,7 +521,7 @@ def register(app):
             else:
                 mid, bot = play_model(a.get("play_model"))
             card, top = api_card(bot, seat=seat, hand=hand, dummy=dummy, played=played,
-                                 calls=calls, dealer=dealer, vul=vul)
+                                 calls=calls, dealer=dealer, vul=vul, systems=parse_systems(a))
         except ApiError as exc:
             return error(str(exc))
         return jsonify(card=card_name(card), model=mid,

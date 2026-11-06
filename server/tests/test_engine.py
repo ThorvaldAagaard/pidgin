@@ -133,6 +133,8 @@ def test_search_is_on_by_default_on_table_and_apis(client):
     lead = next(c for c in range(52) if s["legal_cards"][c])
     before = player.solves
     s = client.post("/api/table/card", json={"card": lead}, headers=h).json
+    assert "error" not in s and player.solves == before      # the nets move on /advance
+    s = client.post("/api/table/advance", headers=h).json
     assert "error" not in s and player.solves > before
 
     # the Brill API: declarer asked for dummy's card after the lead

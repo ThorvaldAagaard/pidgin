@@ -1,7 +1,6 @@
 # Pidgin V3.2
 
-Pidgin V3.2 is the default team of the table at <https://bridge.localgeek.jp/> and of the
-Brill and BBO APIs. Its team ID is `PidginV3.2`. It bids with the
+Pidgin V3.2 was the default team before [Pidgin V4](pidgin_v4.md). Its team ID is `PidginV3.2`. It bids with the
 [Pidgin V3.1](pidgin_v3_1.md) bidding model (`pidginv3_1_bid_s20000.pt`), without bidding
 search, and plays the cards with [Pidgin card play V3](card_play.md#card-play-v3)
 (`play_run18_s4000.pt`), without search. The table shows it as **Pidgin V3.2**

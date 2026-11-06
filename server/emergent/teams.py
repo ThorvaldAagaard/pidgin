@@ -33,7 +33,7 @@ class Team:
     label: str
     bid: object            # a bidserver bidding bot
     bid_search: bool
-    play: object           # playdesk.PlayBot, playdmc.DMCPlayBot or playq.QPlayBot
+    play: object           # playdesk.PlayBot, playdmc.DMCPlayBot, playq.QPlayBot or playpimc.PimcPlayBot
 
 
 def load_manifest(models_dir=engine.MODELS_DIR):
@@ -57,7 +57,7 @@ def get(team_id, models_dir=engine.MODELS_DIR):
 def available(models_dir=engine.MODELS_DIR):
     """The team ids whose weight files are all on disk, in teams.json order."""
     def present(m):
-        files = [m["bid"], m["play"]] + [m[k] for k in ("sampler", "hints") if k in m]
+        files = [m["bid"], m["play"]] + [m[k] for k in ("sampler", "hints", "tie") if k in m]
         return all(os.path.exists(os.path.join(models_dir, f)) for f in files)
     return [tid for tid, m in MANIFEST.items() if present(m)]
 
@@ -97,9 +97,19 @@ def _load(m, models_dir):
                 plays[file].file = file
         return plays[file]
 
+    def dmc_bot(file):
+        if file not in plays:
+            plays[file] = playdmc.DMCPlayBot(os.path.join(models_dir, file))
+            plays[file].file = file
+        return plays[file]
+
     if m.get("play_family") == "dmc":
+        play = dmc_bot(m["play"])
+        play.hint_file = m.get("hints")
+    elif m.get("play_family") == "pimc":
+        from emergent import playpimc
         if m["play"] not in plays:
-            plays[m["play"]] = playdmc.DMCPlayBot(os.path.join(models_dir, m["play"]))
+            plays[m["play"]] = playpimc.PimcPlayBot(os.path.join(models_dir, m["play"]), dmc_bot(m["tie"]))
             plays[m["play"]].file = m["play"]
         play = plays[m["play"]]
         play.hint_file = m.get("hints")
@@ -129,7 +139,7 @@ def hint_bot(play):
     return engine.PLAY_MODELS[known] if known is not None else None
 
 
-DEFAULT_TEAM = "PidginV3.2"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides
+DEFAULT_TEAM = "PidginV4"   # answers an API request that names no model; BRILL_DEFAULT_MODEL overrides
 
 
 def default_team():
