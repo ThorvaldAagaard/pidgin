@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download the released Pidgin models into server/models/ (about 140 MB).
+# Download the released Pidgin models into server/models/ (about 400 MB).
 #
 #   scripts/get_models.sh                 # every released file
 #   PIDGIN_HF_REPO=user/pidgin scripts/get_models.sh

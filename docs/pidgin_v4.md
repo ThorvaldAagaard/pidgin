@@ -58,7 +58,7 @@ auctions at both tables on every board. IMPs per board for Pidgin's pair, ± 95%
 
 | Opponent | Boards | Card play V3.1 (V2) | Card play V4 | V4 − V2, paired |
 |---|---|---|---|---|
-| Lia (2/1) | 200 | −0.12 | +1.12 ± 0.89 | +0.81 ± 0.65 |
+| Lia (2/1) | 200 | −0.12 ± 0.98 | +1.12 ± 0.89 | +1.25 ± 0.82 |
 | Brill (2/1, GIB style) | 100 | +0.08 ± 1.34 | +1.23 ± 1.31 | +1.15 ± 1.46 |
 
 The belief net plays about 0.1 s per decision on one CPU core.
